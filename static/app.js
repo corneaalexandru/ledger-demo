@@ -52,6 +52,7 @@ const state = {
   globalSearch: null,
   cacheStatus: null,
   dataHealth: null,
+  aboutChangelog: null,
   loading: {
     overview: false,
     accounts: false,
@@ -61,6 +62,7 @@ const state = {
     statementImport: false,
     globalSearch: false,
     settingsDiagnostics: false,
+    aboutChangelog: false,
   },
   error: {
     overview: "",
@@ -71,6 +73,7 @@ const state = {
     statementImport: "",
     globalSearch: "",
     settingsDiagnostics: "",
+    aboutChangelog: "",
   },
   accountFilters: defaultAccountFilters(),
   accountOffset: 0,
@@ -131,6 +134,7 @@ const state = {
   selectedExitPhaseEditing: false,
   exitPhaseActionError: "",
   settingsView: "project",
+  aboutView: "copyright",
   overviewView: "insights",
   portfolioView: "overview",
   portfolioPerformanceWindow: "all",
@@ -274,6 +278,7 @@ const icons = {
   bank: '<svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="M6 10v8"/><path d="M10 10v8"/><path d="M14 10v8"/><path d="M18 10v8"/><path d="M3 18h18"/><path d="M12 4 4 8h16z"/></svg>',
   creditCard: '<svg viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M3.5 10h17"/><path d="M7 14h4"/></svg>',
   phoneWallet: '<svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/><path d="M10 15h4"/><path d="M12 18h.01"/></svg>',
+  mail: '<svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>',
   shield: '<svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.8 8 7 10 4.2-2 7-5.5 7-10V6z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>',
   eyeOff: '<svg viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 10.6A2 2 0 0 0 13.4 13.4"/><path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c5 0 8.5 4 9.5 7a10.8 10.8 0 0 1-2.1 3.4"/><path d="M6.2 6.7A10.8 10.8 0 0 0 2.5 12c1 3 4.5 7 9.5 7a10 10 0 0 0 4.1-.9"/></svg>',
   arrowsLeftRight: '<svg viewBox="0 0 24 24"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 13-4 4 4 4"/></svg>',
@@ -546,6 +551,7 @@ let tradeRequestId = 0;
 let portfolioReturnsRequestId = 0;
 let globalSearchRequestId = 0;
 let settingsDiagnosticsRequestId = 0;
+let aboutChangelogRequestId = 0;
 
 const transactionFields = [
   ["transaction_id", "Transaction ID"],
@@ -1915,6 +1921,13 @@ function bindEvents() {
     }
     if (action.dataset.action === "settings-tab") {
       state.settingsView = action.dataset.settingsView || "project";
+      if (state.settingsView === "about") loadAboutChangelog();
+      renderPreservingScroll();
+      return;
+    }
+    if (action.dataset.action === "about-tab") {
+      state.aboutView = action.dataset.aboutView || "copyright";
+      if (state.aboutView === "changelog") loadAboutChangelog();
       renderPreservingScroll();
       return;
     }
@@ -9508,6 +9521,7 @@ function settingsTabs() {
     { id: "connections", label: "Connections" },
     { id: "thresholds", label: "Thresholds" },
     { id: "preferences", label: "Preferences" },
+    { id: "about", label: "About" },
   ];
   return `
     <nav class="transaction-tabs settings-tabs" aria-label="Settings sections">
@@ -9530,7 +9544,74 @@ function settingsDashboard(context = {}) {
   if (view === "connections") return settingsConnectionsDashboard(context);
   if (view === "thresholds") return settingsThresholdsDashboard();
   if (view === "preferences") return settingsPreferencesDashboard();
+  if (view === "about") return settingsAboutDashboard();
   return settingsProjectDashboard(context);
+}
+
+function settingsAboutDashboard() {
+  return `
+    <section class="settings-layout settings-layout-single">
+      ${panel("About", `
+        ${settingsAboutTabs()}
+        ${state.aboutView === "changelog" ? settingsChangelogPanel() : settingsCopyrightPanel()}
+      `)}
+    </section>
+  `;
+}
+
+function settingsAboutTabs() {
+  const tabs = [
+    { id: "copyright", label: "Copyright & License" },
+    { id: "changelog", label: "Changelog" },
+  ];
+  return `
+    <nav class="transaction-tabs settings-about-tabs" aria-label="About sections">
+      ${tabs.map((tab) => `
+        <button
+          class="${state.aboutView === tab.id ? "is-active" : ""}"
+          data-action="about-tab"
+          data-about-view="${safe(tab.id)}"
+          type="button"
+        >${safe(tab.label)}</button>
+      `).join("")}
+    </nav>
+  `;
+}
+
+function settingsCopyrightPanel() {
+  const currentYear = new Date().getFullYear();
+  return settingsRows([
+    ["Product", "Ledger", "Personal finance workspace for source-truth review, portfolio planning, and reporting."],
+    ["Copyright", `Copyright (c) ${currentYear} Alexandru Cornea. All rights reserved.`, "Ownership and notices apply to the application, documentation, and distributed assets unless separately stated."],
+    ["Contact", "contact@alexandru-cornea.com", "Use this address for support, licensing, security disclosures, and permission requests."],
+    ["License", "Repository license controls use", "If a LICENSE file or written agreement is provided, that license governs. Otherwise, no rights are granted beyond personal evaluation or internal use expressly permitted by the owner."],
+    ["Public Package", "User-owned data model", "Ledger Public is distributed without private data or credentials. Users are responsible for their own Google Sheet, service-account file, backups, and access controls."],
+    ["Disclaimer", "No financial advice", "Information generated by Ledger is for recordkeeping and planning support only. It is not investment, tax, legal, accounting, or financial advice."],
+    ["Warranty", "Provided as is", "The software is provided without warranties of merchantability, fitness for a particular purpose, accuracy, availability, or non-infringement, to the maximum extent permitted by law."],
+    ["Third-party Services", "Separate terms apply", "Google Sheets, market-data providers, libraries, brokers, banks, and other connected services remain governed by their own terms and privacy policies."],
+  ], `
+    <a class="small-button" href="mailto:contact@alexandru-cornea.com">
+      <span data-icon="mail"></span>
+      <span>Contact</span>
+    </a>
+  `);
+}
+
+function settingsChangelogPanel() {
+  if (state.loading.aboutChangelog && !state.aboutChangelog) return loadingState("Loading changelog");
+  if (state.error.aboutChangelog && !state.aboutChangelog) return errorState("Changelog", state.error.aboutChangelog);
+  const changelog = state.aboutChangelog || {};
+  const body = changelog.body || "# Changelog\n\nNo changelog entries are available.";
+  return `
+    <div class="settings-changelog-head">
+      <span>Source: ${safe(changelog.source || "CHANGELOG.md")}</span>
+      <a class="small-button" href="/CHANGELOG.md" target="_blank" rel="noopener">
+        <span data-icon="externalLink"></span>
+        <span>Open Markdown</span>
+      </a>
+    </div>
+    ${markdownDocument(body)}
+  `;
 }
 
 function settingsProjectDashboard({ accounts = {}, netWorth = 0, projectCurrency = "EUR", stats = [], transactions = {} } = {}) {
@@ -14635,6 +14716,52 @@ function errorState(title, message) {
   `;
 }
 
+function markdownDocument(markdown = "") {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const blocks = [];
+  let paragraph = [];
+  let list = [];
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${paragraph.map(safe).join(" ")}</p>`);
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    blocks.push(`<ul>${list.map((item) => `<li>${safe(item)}</li>`).join("")}</ul>`);
+    list = [];
+  };
+
+  lines.forEach((line) => {
+    const text = line.trim();
+    if (!text) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+    const heading = text.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${safe(heading[2])}</h${level}>`);
+      return;
+    }
+    const bullet = text.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      flushParagraph();
+      list.push(bullet[1]);
+      return;
+    }
+    flushList();
+    paragraph.push(text);
+  });
+
+  flushParagraph();
+  flushList();
+  return `<div class="settings-markdown">${blocks.join("")}</div>`;
+}
+
 function emptyState(message) {
   return `<div class="empty-state">${safe(message)}</div>`;
 }
@@ -14918,6 +15045,7 @@ async function loadDataForView() {
   if (state.view === "settings") {
     if (!overviewHasScope("summary")) await loadOverview({ scope: "summary" });
     await loadSettingsDiagnostics();
+    if (state.settingsView === "about") await loadAboutChangelog();
   }
   if (state.view === "portfolio" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
   if (state.view === "planning" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
@@ -14955,6 +15083,27 @@ async function loadSettingsDiagnostics(options = {}) {
   } finally {
     if (requestId !== settingsDiagnosticsRequestId) return;
     state.loading.settingsDiagnostics = false;
+    render();
+  }
+}
+
+async function loadAboutChangelog(options = {}) {
+  if (state.loading.aboutChangelog) return;
+  if (state.aboutChangelog && !options.force) return;
+  const requestId = ++aboutChangelogRequestId;
+  state.loading.aboutChangelog = true;
+  state.error.aboutChangelog = "";
+  render();
+  try {
+    const data = await fetchJson("/api/about/changelog");
+    if (requestId !== aboutChangelogRequestId) return;
+    state.aboutChangelog = data;
+  } catch (error) {
+    if (requestId !== aboutChangelogRequestId) return;
+    state.error.aboutChangelog = friendlyFetchError(error);
+  } finally {
+    if (requestId !== aboutChangelogRequestId) return;
+    state.loading.aboutChangelog = false;
     render();
   }
 }

@@ -30,6 +30,7 @@ from ledger_core.schemas import SHEETS as CORE_SHEETS
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
+CHANGELOG_PATH = ROOT / "CHANGELOG.md"
 DATA_DIR = ROOT / "local_ledger_data"
 WORKBOOK_PATH = ROOT / "local_ledger_workbook.xlsx"
 STARTER_DIR = ROOT / "starter"
@@ -1545,6 +1546,10 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
                 return self.send_json(public_data_health())
             if parsed.path == "/api/report-presets":
                 return self.send_json({"ok": True, "rows": report_presets()})
+            if parsed.path == "/api/about/changelog":
+                return self.send_json(read_changelog_payload())
+            if parsed.path == "/CHANGELOG.md":
+                return self.send_bytes(read_changelog_text().encode("utf-8"), "text/markdown; charset=utf-8", "CHANGELOG.md")
             if parsed.path == "/api/refresh":
                 write_local_workbook()
                 return self.send_json({"ok": True, "refreshed": True})
@@ -1765,6 +1770,17 @@ def flatten_mip_values(values: dict) -> dict:
             if str(next_values.get(key, "")).strip()
         )
     return next_values
+
+
+def read_changelog_text() -> str:
+    try:
+        return CHANGELOG_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return "# Changelog\n\nNo changelog entries are available in this checkout.\n"
+
+
+def read_changelog_payload() -> dict:
+    return {"ok": True, "source": "CHANGELOG.md", "body": read_changelog_text()}
 
 
 def public_data_health() -> dict:
