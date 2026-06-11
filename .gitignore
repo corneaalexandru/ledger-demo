@@ -1,16 +1,25 @@
 .DS_Store
+.env
+.env.*
+!.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 *.log
+*.json
+
+# User-owned Google auth files. Never commit service-account credentials.
+credentials/*
+!credentials/.gitkeep
 
 # Runtime ledger data. Generated on first run and intentionally not versioned,
 # so users can pull app updates without overwriting their local ledger.
 local_ledger_data/
 local_ledger_workbook.xlsx
 local_ledger_backups/
+google_ledger_backups/
 
 # Legacy local data names from early public builds. Ignored and migrated on run.
 mock_google_sheet/

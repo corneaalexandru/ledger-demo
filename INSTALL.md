@@ -53,6 +53,33 @@ cd ledger-public
 python3 server.py --open
 ```
 
+## Google Sheets Mode
+
+Google Sheets mode is the real-user mode closest to Ledger Private. It uses the user's own Google Sheet and auth file.
+
+```bash
+cd ledger-public
+cp .env.example .env
+python3 -m pip install -r requirements-google.txt
+```
+
+Edit `.env`:
+
+```env
+LEDGER_STORE=google
+LEDGER_SPREADSHEET_ID=your_google_sheet_id_here
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/ledger-service-account.json
+```
+
+Then initialize the tabs and start:
+
+```bash
+python3 server.py --store google --init-google-sheet --init-only
+python3 server.py --store google --open
+```
+
+See [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md).
+
 ## Stop The Server
 
 In the terminal window running Ledger Public, press:
@@ -61,9 +88,9 @@ In the terminal window running Ledger Public, press:
 Ctrl+C
 ```
 
-## First Run Data
+## Local Demo Data
 
-The first run creates local CSV tabs in:
+When using local mode, the first run creates local CSV tabs in:
 
 ```text
 local_ledger_data/

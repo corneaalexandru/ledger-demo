@@ -16,6 +16,8 @@ RUNTIME_FILES = {
     "local_ledger_workbook.xlsx",
     "mock_ledger_google_sheet.xlsx",
 }
+FORBIDDEN_TRACKED_SUFFIXES = (".env", ".json", ".csv", ".xlsx")
+FORBIDDEN_TRACKED_PREFIXES = ("credentials/", "local_ledger_backups/", "google_ledger_backups/")
 
 
 def main() -> int:
@@ -40,6 +42,15 @@ def reject_tracked_runtime_data() -> None:
         for path in tracked
         if path in RUNTIME_FILES or any(path.startswith(prefix) for prefix in RUNTIME_PREFIXES)
     ]
+    bad.extend(
+        path
+        for path in tracked
+        if (
+            path.endswith(FORBIDDEN_TRACKED_SUFFIXES)
+            or any(path.startswith(prefix) for prefix in FORBIDDEN_TRACKED_PREFIXES)
+        )
+        and path not in {".env.example", "credentials/.gitkeep"}
+    )
     if bad:
         raise SystemExit("Runtime data is tracked:\n" + "\n".join(bad))
 

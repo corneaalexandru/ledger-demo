@@ -5,8 +5,10 @@ import argparse
 import csv
 import json
 import mimetypes
+import os
 import re
 import sys
+import tempfile
 import threading
 import webbrowser
 import zipfile
@@ -19,6 +21,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from ledger_core.backups import backup_local_data
 from ledger_core.fx import DEFAULT_CONVERTER, normalize_currency as core_normalize_currency
+from ledger_core.google_sheets import GoogleSheetsConfig, GoogleSheetsLedgerStore
 from ledger_core.health import data_health_summary
 from ledger_core.local_csv import LocalCsvLedgerStore
 from ledger_core.reports import report_presets
@@ -180,6 +183,8 @@ if SHEETS != CORE_SHEETS:
     raise RuntimeError("Public server schema drifted from ledger_core.schemas.")
 
 STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
+STORE_MODE = "local"
+STORE_DETAILS: dict[str, str] = {"data_dir": str(DATA_DIR), "workbook": str(WORKBOOK_PATH)}
 
 
 def money(value: float) -> float:
@@ -297,15 +302,18 @@ def rows_path(sheet_name: str) -> Path:
 
 
 def read_rows(sheet_name: str) -> list[dict]:
-    migrate_legacy_data_paths()
+    if STORE_MODE == "local":
+        migrate_legacy_data_paths()
     return STORE.list_rows(sheet_name)
 
 
 def write_rows(sheet_name: str, rows: list[dict]) -> None:
-    migrate_legacy_data_paths()
-    SHEET_DIR.mkdir(parents=True, exist_ok=True)
+    if STORE_MODE == "local":
+        migrate_legacy_data_paths()
+        SHEET_DIR.mkdir(parents=True, exist_ok=True)
     STORE.write_rows(sheet_name, rows)
-    write_local_workbook()
+    if STORE_MODE == "local":
+        write_local_workbook()
 
 
 def normalize_row(sheet_name: str, row: dict) -> dict:
@@ -1428,7 +1436,7 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
         params = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         try:
             if parsed.path == "/api/health":
-                return self.send_json({"ok": True, "mode": "local", "workbook": str(WORKBOOK_PATH.name)})
+                return self.send_json(public_health())
             if parsed.path == "/api/overview":
                 return self.send_json(overview_payload(params))
             if parsed.path == "/api/accounts":
@@ -1476,7 +1484,7 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
                 data.update({"rows": [], "unsupported_rows": [], "cleared_files": 1, "parsed_transactions": 0, "importable": 0, "duplicates": 0})
                 return self.send_json(data)
             if parsed.path == "/api/backup":
-                archive = backup_local_data(DATA_DIR, ROOT / "local_ledger_backups", label="ledger-public")
+                archive = backup_current_store()
                 return self.send_json({"ok": True, "backup": archive.name, "path": str(archive)})
             tx_id = self.path_id(parsed.path, "/api/transactions/", "/statement/attachments")
             if tx_id:
@@ -1671,18 +1679,51 @@ def public_data_health() -> dict:
     return data_health_summary({sheet_name: read_rows(sheet_name) for sheet_name in SHEETS}, today=TODAY)
 
 
+def public_health() -> dict:
+    payload = {"ok": True, "mode": STORE_MODE}
+    if STORE_MODE == "google":
+        payload.update(
+            {
+                "spreadsheet_id": STORE_DETAILS.get("spreadsheet_id", ""),
+                "credentials_file": STORE_DETAILS.get("credentials_file", ""),
+            }
+        )
+    else:
+        payload["workbook"] = str(WORKBOOK_PATH.name)
+    return payload
+
+
 def public_cache_status() -> dict:
-    migrate_legacy_data_paths()
+    if STORE_MODE == "local":
+        migrate_legacy_data_paths()
+        snapshot = {"path": str(WORKBOOK_PATH), "mode": "local_workbook"}
+    else:
+        snapshot = {"spreadsheet_id": STORE_DETAILS.get("spreadsheet_id", ""), "mode": "google_sheets"}
     return {
         "ok": True,
         "ttl_seconds": 0,
         "memory": [
-            {"sheet": sheet_name, "rows": len(read_rows(sheet_name)), "source": "local_csv"}
+            {"sheet": sheet_name, "rows": len(read_rows(sheet_name)), "source": STORE_MODE}
             for sheet_name in SHEETS
         ],
-        "snapshot": {"path": str(WORKBOOK_PATH), "mode": "local_workbook"},
+        "snapshot": snapshot,
         "last_snapshot_error": "",
     }
+
+
+def backup_current_store() -> Path:
+    backup_dir = ROOT / ("local_ledger_backups" if STORE_MODE == "local" else "google_ledger_backups")
+    if STORE_MODE == "local":
+        return backup_local_data(DATA_DIR, backup_dir, label="ledger-public")
+    with tempfile.TemporaryDirectory(prefix="ledger-public-google-backup-") as temp_dir:
+        export_dir = Path(temp_dir)
+        for sheet_name, headers in SHEETS.items():
+            rows = read_rows(sheet_name)
+            with (export_dir / f"{sheet_name}.csv").open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=headers, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows({header: row.get(header, "") for header in headers} for row in rows)
+        return backup_local_data(export_dir, backup_dir, label="ledger-public-google")
 
 
 def transaction_statement(transaction_id: str) -> dict:
@@ -1748,29 +1789,109 @@ def refresh_local_prices() -> dict:
     return {"ok": True, "updated_positions": updated, "skipped": [], "brokerage_account_formulas": 1, "price_as_of": TODAY.isoformat()}
 
 
+def load_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text or text.startswith("#") or "=" not in text:
+            continue
+        key, value = text.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def env_setting(env: dict[str, str], key: str, default: str = "") -> str:
+    return os.environ.get(key) or env.get(key) or default
+
+
+def resolve_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else ROOT / path
+
+
+def configure_store(args: argparse.Namespace, env: dict[str, str]) -> None:
+    global STORE, STORE_MODE, STORE_DETAILS
+    mode = (args.store or env_setting(env, "LEDGER_STORE", "local")).strip().lower()
+    if mode not in {"local", "google"}:
+        raise SystemExit("LEDGER_STORE must be either 'local' or 'google'.")
+
+    if mode == "local":
+        STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
+        STORE_MODE = "local"
+        STORE_DETAILS = {"data_dir": str(DATA_DIR), "workbook": str(WORKBOOK_PATH)}
+        return
+
+    spreadsheet_id = args.spreadsheet_id or env_setting(env, "LEDGER_SPREADSHEET_ID")
+    credentials_file = args.credentials_file or env_setting(env, "GOOGLE_APPLICATION_CREDENTIALS")
+    if not spreadsheet_id:
+        raise SystemExit("Google mode needs LEDGER_SPREADSHEET_ID or --spreadsheet-id.")
+    if not credentials_file:
+        raise SystemExit("Google mode needs GOOGLE_APPLICATION_CREDENTIALS or --credentials-file.")
+    credentials_path = resolve_path(credentials_file)
+    if not credentials_path.exists():
+        raise SystemExit(f"Google credentials file was not found: {credentials_path}")
+
+    STORE = GoogleSheetsLedgerStore(
+        GoogleSheetsConfig(spreadsheet_id=spreadsheet_id, credentials_path=credentials_path),
+        sheets=SHEETS,
+        fx=DEFAULT_CONVERTER,
+    )
+    STORE_MODE = "google"
+    STORE_DETAILS = {
+        "spreadsheet_id": spreadsheet_id,
+        "credentials_file": str(credentials_path),
+    }
+
+
 def run_server(port: int, host: str, open_browser: bool = False) -> None:
-    ensure_local_data()
     server = ThreadingHTTPServer((host, port), LedgerPublicHandler)
     url = f"http://{host}:{port}"
     if open_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     print(f"Ledger Public running at {url}")
-    print(f"Local ledger workbook: {WORKBOOK_PATH}")
+    if STORE_MODE == "google":
+        print(f"Google Sheet: {STORE_DETAILS.get('spreadsheet_id', '')}")
+    else:
+        print(f"Local ledger workbook: {WORKBOOK_PATH}")
     print("Press Ctrl+C to stop the local server.")
     server.serve_forever()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Standalone Ledger Public server with local first-run sample data.")
+    parser = argparse.ArgumentParser(description="Standalone Ledger Public server with local or Google Sheets storage.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--open", action="store_true", help="Open Ledger Public in the default browser after the server starts.")
+    parser.add_argument("--store", choices=["local", "google"], help="Storage backend. Defaults to LEDGER_STORE or local.")
+    parser.add_argument("--env-file", default=".env", help="Optional environment file for Ledger Public settings.")
+    parser.add_argument("--spreadsheet-id", help="Google Sheet ID for --store google.")
+    parser.add_argument("--credentials-file", help="Service-account JSON file for --store google.")
+    parser.add_argument("--init-google-sheet", action="store_true", help="Create or repair required tabs and headers in the configured Google Sheet.")
     parser.add_argument("--init-only", action="store_true", help="Create or refresh the local CSV tabs and XLSX workbook, then exit.")
     parser.add_argument("--reset-data", action="store_true", help="Reset local CSV tabs to the bundled sample defaults.")
     args = parser.parse_args()
-    ensure_local_data(reset=args.reset_data)
+
+    env = load_env_file(resolve_path(args.env_file))
+    configure_store(args, env)
+
+    if STORE_MODE == "local":
+        ensure_local_data(reset=args.reset_data)
+    elif args.reset_data:
+        raise SystemExit("--reset-data is only available in local mode.")
+
+    if args.init_google_sheet:
+        if STORE_MODE != "google":
+            raise SystemExit("--init-google-sheet requires --store google or LEDGER_STORE=google.")
+        STORE.ensure_sheets()
+        print(f"Google Sheet tabs ready: {STORE_DETAILS.get('spreadsheet_id', '')}")
+
     if args.init_only:
-        print(f"Local ledger workbook created at {WORKBOOK_PATH}")
+        if STORE_MODE == "google":
+            print(f"Google Sheets configuration ready: {STORE_DETAILS.get('spreadsheet_id', '')}")
+        else:
+            print(f"Local ledger workbook created at {WORKBOOK_PATH}")
         return
     run_server(args.port, args.host, open_browser=args.open)
 

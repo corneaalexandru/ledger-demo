@@ -8,6 +8,9 @@ class LedgerStore(Protocol):
     def list_rows(self, sheet_name: str) -> list[dict]:
         ...
 
+    def write_rows(self, sheet_name: str, rows: list[dict]) -> None:
+        ...
+
     def upsert_row(self, sheet_name: str, id_field: str, row_id: str, values: dict) -> dict:
         ...
 

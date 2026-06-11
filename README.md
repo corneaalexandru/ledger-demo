@@ -2,7 +2,12 @@
 
 A standalone public version of the Ledger finance dashboard.
 
-Ledger Public runs entirely on the user's computer. It does not connect to the live Ledger Google Sheet, does not use service-account credentials, and does not include private financial data.
+Ledger Public has two storage modes:
+
+- **Google Sheets mode**: user-owned Google Sheet plus user-owned service-account JSON, closest to Ledger Private.
+- **Local demo mode**: local CSV files and a generated workbook for no-setup testing or offline use.
+
+The repository does not include private financial data, real spreadsheet IDs, `.env` files, or credentials.
 
 ## Quick Start
 
@@ -37,14 +42,25 @@ python3 server.py --port 8770 --open
 ## Requirements
 
 - Python 3.10+ recommended.
-- No `pip install` step is required.
-- No Google account or API credentials are required.
+- Local demo mode requires no `pip install` step.
+- Google Sheets mode requires `python3 -m pip install -r requirements-google.txt`.
 
-The local server uses only the Python standard library.
+## Google Sheets Mode
 
-## Local Data Model
+Use this when another user wants Ledger Public to behave like the private Google-backed Ledger app with their own sheet and credentials.
 
-The public repository contains the app logic, backend, UI, and a first-run data generator. It does not version user ledger files.
+```bash
+cp .env.example .env
+python3 -m pip install -r requirements-google.txt
+python3 server.py --store google --init-google-sheet --init-only
+python3 server.py --store google --open
+```
+
+See [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) for the full setup.
+
+## Local Demo Mode
+
+Local mode is the no-setup fallback. It contains the app logic, backend, UI, and a first-run data generator. It does not version user ledger files.
 
 On first run, the server creates local ledger files:
 
@@ -53,12 +69,12 @@ On first run, the server creates local ledger files:
 
 Those files are ignored by Git. A user can edit/import their own local data, then run `git pull` later to get the newest app logic without pulling or overwriting the sample data again.
 
-The app reads and writes the CSV tabs. The workbook is regenerated from those CSV files whenever the local data changes.
+In local mode, the app reads and writes the CSV tabs. The workbook is regenerated from those CSV files whenever the local data changes.
 
 ## Features
 
 - Accounts, transactions, trades, portfolio, planning, and settings screens.
-- Local account/transaction/trade create, edit, duplicate, restore, and delete flows.
+- Account/transaction/trade create, edit, duplicate, restore, and delete flows.
 - Local statement import preview and apply flow.
 - Local trade price refresh.
 - Print-to-PDF from relevant pages.
@@ -77,7 +93,7 @@ python3 server.py --reset-data --init-only
 
 Open `local_ledger_workbook.xlsx` in Excel, Numbers, or upload it into Google Sheets to inspect the local source tabs.
 
-The app itself does not read from Google Sheets in this public package; it uses the local CSV files in `local_ledger_data/` so Ledger Public works offline.
+This workbook is only for local demo mode. Google Sheets mode reads and writes the configured spreadsheet directly.
 
 ## Updating The App Without Touching Data
 
@@ -93,6 +109,7 @@ Back up `local_ledger_data/` before sharing or moving a user's ledger to another
 ## Documentation
 
 - [INSTALL.md](INSTALL.md) - install and run instructions.
+- [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) - Google Sheet and auth setup.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - common fixes.
 - [SECURITY.md](SECURITY.md) - what is and is not included in Ledger Public.
 
