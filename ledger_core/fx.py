@@ -17,6 +17,8 @@ DEFAULT_RATES_TO_EUR = {
     "JPY": Decimal("0.006"),
 }
 
+SUPPORTED_CONVERSION_CURRENCIES = tuple(DEFAULT_RATES_TO_EUR.keys())
+
 
 def normalize_currency(value: object, default: str = "EUR") -> str:
     text = str(value or "").strip().upper()

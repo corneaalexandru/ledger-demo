@@ -17,11 +17,13 @@ The launcher will:
 - Pull the latest app version when this folder is a git clone.
 - Install Google Sheets requirements when missing.
 - Ask for the service-account JSON and Google Sheet ID only when setup is not complete.
+- Ask for the default Project Currency used across summaries, charts, reports, and printouts.
 - Start Ledger Public at `http://127.0.0.1:8765`.
 
 ## Starter Database
 
 The starter workbook contains mock accounts, transactions, trades, portfolio plan rows, categories, FX rates, and starter classification rules.
+Project Currency can be set during setup and changed later in Settings. Source/native rows remain stored in their original currencies.
 
 ```text
 starter/ledger_starter_workbook.xlsx

@@ -57,7 +57,10 @@ The wizard writes `.env` once:
 LEDGER_STORE=google
 LEDGER_SPREADSHEET_ID=your_google_sheet_id_here
 GOOGLE_APPLICATION_CREDENTIALS=credentials/ledger-service-account.json
+LEDGER_PROJECT_CURRENCY=EUR
 ```
+
+The wizard asks for Project Currency during setup. Supported values are EUR, USD, AED, RON, GBP, CHF, CAD, AUD, and JPY.
 
 ## 5. Start Ledger
 

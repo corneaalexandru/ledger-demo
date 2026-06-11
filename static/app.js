@@ -40,6 +40,20 @@ const COUNTRY_NAME_OVERRIDES = {
   XK: "Kosovo",
 };
 
+const PROJECT_CURRENCY_RATES_TO_EUR = {
+  EUR: 1,
+  USD: 0.92,
+  AED: 0.25,
+  RON: 0.20,
+  GBP: 1.17,
+  CHF: 1.04,
+  CAD: 0.67,
+  AUD: 0.61,
+  JPY: 0.006,
+};
+
+const PROJECT_CURRENCY_FALLBACK_CODES = Object.keys(PROJECT_CURRENCY_RATES_TO_EUR);
+
 const state = {
   view: "overview",
   query: "",
@@ -570,7 +584,7 @@ const transactionFields = [
   ["statement_amount", "Statement Amount"],
   ["sanitized_statement_amount", "Sanitized Amount"],
   ["amount_usd_converted", "USD Amount"],
-  ["amount_eur_converted", "EUR Amount"],
+  ["amount_eur_converted", "Project Amount"],
   ["imported_transaction", "Imported"],
   ["review_status", "Review"],
 ];
@@ -626,7 +640,7 @@ const portfolioInstrumentFields = [
   ["isin", "ISIN"],
   ["current_value_native", "Native Value"],
   ["current_value_currency", "Native Currency"],
-  ["current_value_eur", "EUR Value"],
+  ["current_value_eur", "Project Value"],
   ["target_allocation_pct", "Target Allocation"],
   ["expected_cagr_pct", "Expected CAGR"],
   ["expected_volatility_pct", "Expected Volatility"],
@@ -858,18 +872,77 @@ function readPrivacyMode() {
   return storageGet(PRIVACY_MODE_STORAGE_KEY) === "on";
 }
 
+function ledgerAppConfig() {
+  return (window.LEDGER_APP_CONFIG && typeof window.LEDGER_APP_CONFIG === "object")
+    ? window.LEDGER_APP_CONFIG
+    : {};
+}
+
+function projectCurrencyRatesToEur() {
+  const configured = ledgerAppConfig().fxRatesToEur || {};
+  const rates = { ...PROJECT_CURRENCY_RATES_TO_EUR };
+  Object.entries(configured).forEach(([currency, rate]) => {
+    const code = normalizeCurrencyCode(currency);
+    const numeric = Number(rate);
+    if (code && Number.isFinite(numeric) && numeric > 0) rates[code] = numeric;
+  });
+  return rates;
+}
+
 function supportedProjectCurrencies() {
-  return ["EUR", "USD"];
+  const configured = Array.isArray(ledgerAppConfig().supportedProjectCurrencies)
+    ? ledgerAppConfig().supportedProjectCurrencies
+    : [];
+  const codes = [...configured, ...Object.keys(projectCurrencyRatesToEur()), ...PROJECT_CURRENCY_FALLBACK_CODES]
+    .map(normalizeCurrencyCode)
+    .filter(Boolean);
+  return Array.from(new Set(codes));
+}
+
+function defaultProjectCurrency() {
+  const configured = normalizeCurrencyCode(ledgerAppConfig().projectCurrency);
+  return supportedProjectCurrencies().includes(configured) ? configured : "EUR";
 }
 
 function readProjectCurrency() {
   const stored = normalizeCurrencyCode(storageGet(PROJECT_CURRENCY_STORAGE_KEY));
-  return supportedProjectCurrencies().includes(stored) ? stored : "EUR";
+  return supportedProjectCurrencies().includes(stored) ? stored : defaultProjectCurrency();
+}
+
+function projectCurrencyCode() {
+  const selected = normalizeCurrencyCode(state.projectCurrency);
+  return supportedProjectCurrencies().includes(selected) ? selected : defaultProjectCurrency();
+}
+
+function projectCurrencyRateToEur(currency) {
+  const code = normalizeCurrencyCode(currency) || "EUR";
+  return projectCurrencyRatesToEur()[code] || 0;
+}
+
+function convertCurrencyValue(value, sourceCurrency = "EUR", targetCurrency = projectCurrencyCode()) {
+  const numeric = numericValue(value);
+  const source = normalizeCurrencyCode(sourceCurrency) || "EUR";
+  const target = normalizeCurrencyCode(targetCurrency) || "EUR";
+  if (source === target) return numeric;
+  const sourceRate = projectCurrencyRateToEur(source);
+  const targetRate = projectCurrencyRateToEur(target);
+  if (!sourceRate || !targetRate) return numeric;
+  return numeric * sourceRate / targetRate;
+}
+
+function projectMoneyValue(value, currency = "EUR", options = {}) {
+  const source = normalizeCurrencyCode(currency) || "EUR";
+  const target = normalizeCurrencyCode(options.targetCurrency) || projectCurrencyCode();
+  const shouldConvert = options.project !== false && source === "EUR" && target !== source;
+  return {
+    value: shouldConvert ? convertCurrencyValue(value, source, target) : numericValue(value),
+    currency: shouldConvert ? target : source,
+  };
 }
 
 function setProjectCurrency(currency) {
   const normalized = normalizeCurrencyCode(currency);
-  state.projectCurrency = supportedProjectCurrencies().includes(normalized) ? normalized : "EUR";
+  state.projectCurrency = supportedProjectCurrencies().includes(normalized) ? normalized : defaultProjectCurrency();
   storageSet(PROJECT_CURRENCY_STORAGE_KEY, state.projectCurrency);
   renderPreservingScroll();
 }
@@ -9503,10 +9576,10 @@ function renderSettings() {
     ${settingsTabs()}
     <section class="settings-page">
       <section class="transaction-metrics settings-metrics">
-        ${inlineStat("Project Currency", projectCurrency, "reporting baseline")}
+        ${inlineStat("Project Currency", projectCurrency, "display baseline")}
         ${inlineStat("Source Rows", formatNumber(stats.reduce((total, item) => total + numericValue(item.rows), 0)), "live registers")}
         ${inlineStat("Review", transactions.review_open ?? transactions.review_required ?? 0, "transactions")}
-        ${inlineStat("Net Worth", formatWholeCurrency(netWorth, projectCurrency), "from source truth")}
+        ${inlineStat("Net Worth", formatWholeCurrency(netWorth, projectCurrency, { project: false }), "from source truth")}
       </section>
       ${settingsDashboard({ accounts, connections, netWorth, projectCurrency, stats, transactions })}
     </section>
@@ -9620,7 +9693,7 @@ function settingsProjectDashboard({ accounts = {}, netWorth = 0, projectCurrency
     <section class="settings-layout settings-layout-two">
       ${panel("Project", settingsProjectRows(accounts))}
       ${panel("Project Snapshot", settingsRows([
-        ["Current Net Worth", formatWholeCurrency(netWorth, projectCurrency), "selected reporting currency"],
+        ["Current Net Worth", formatWholeCurrency(netWorth, projectCurrency, { project: false }), "selected project currency"],
         ["Source Rows", formatNumber(sourceRows), "live registers"],
         ["Open Review", formatNumber(transactions.review_open ?? transactions.review_required ?? 0), "transactions"],
       ]))}
@@ -9698,15 +9771,16 @@ function settingsPreferencesDashboard() {
 }
 
 function settingsProjectRows(accounts = {}) {
-  const currency = state.projectCurrency || "EUR";
+  const currency = projectCurrencyCode();
+  const supported = supportedProjectCurrencies().join(" / ");
   return settingsRows([
     {
-      label: "Reporting Currency",
+      label: "Project Currency",
       valueHtml: settingsProjectCurrencyControl(currency),
-      note: "EUR and USD use source-truth converted values.",
+      note: "Used across summaries, charts, reports, and printouts. Native source rows stay in their original currencies.",
     },
-    ["Current Net Worth", formatWholeCurrency(projectCurrencyAccountValue(accounts, "net_worth"), currency), "selected reporting currency"],
-    ["Currency Coverage", "EUR / USD", "Full ISO currency coverage needs backend FX target fields."],
+    ["Current Net Worth", formatWholeCurrency(projectCurrencyAccountValue(accounts, "net_worth"), currency, { project: false }), "selected project currency"],
+    ["Currency Coverage", supported, "Supported by the shared conversion table."],
   ]);
 }
 
@@ -9724,14 +9798,22 @@ function projectCurrencyName(currency = "") {
   return {
     EUR: "Euro",
     USD: "US Dollar",
+    AED: "UAE Dirham",
+    RON: "Romanian Leu",
+    GBP: "British Pound",
+    CHF: "Swiss Franc",
+    CAD: "Canadian Dollar",
+    AUD: "Australian Dollar",
+    JPY: "Japanese Yen",
   }[normalizeCurrencyCode(currency)] || currencyName(currency);
 }
 
 function projectCurrencyAccountValue(accounts = {}, key = "net_worth") {
-  const currency = (state.projectCurrency || "EUR").toLowerCase();
+  const selectedCurrency = projectCurrencyCode();
+  const currency = selectedCurrency.toLowerCase();
   const selected = accounts[`${key}_${currency}`];
   if (selected !== undefined && selected !== null && selected !== "") return selected;
-  return accounts[`${key}_eur`] ?? 0;
+  return convertCurrencyValue(accounts[`${key}_eur`] ?? 0, "EUR", selectedCurrency);
 }
 
 function settingsRegisterList(rows) {
@@ -10759,15 +10841,16 @@ function tradeStalenessCard(trades = {}) {
 
 function fxExposureOutsideBaseCard(accounts = {}) {
   const netWorth = numericValue(accounts.net_worth_eur);
-  const nonEur = (accounts.by_currency || [])
-    .filter((row) => String(row.name || "").toUpperCase() !== "EUR")
+  const projectCurrency = projectCurrencyCode();
+  const nonProject = (accounts.by_currency || [])
+    .filter((row) => String(row.name || row.label || row.currency || "").toUpperCase() !== projectCurrency)
     .reduce((total, row) => total + Math.abs(numericValue(row.eur)), 0);
   return dashboardCard(
     "fx-exposure-outside-eur",
-    "FX Exposure Outside EUR",
-    formatWholeCurrency(nonEur, "EUR"),
-    `${formatPercent(percentOf(nonEur, netWorth))} of net worth`,
-    "Capital exposed to non-EUR source currencies.",
+    "FX Exposure Outside Project Currency",
+    formatWholeCurrency(nonProject, "EUR"),
+    `${formatPercent(percentOf(nonProject, netWorth))} of net worth`,
+    "Capital exposed to source currencies outside the selected project currency.",
     "currency",
   );
 }
@@ -12639,7 +12722,7 @@ function accountTable(rows, data) {
             <th class="account-type-col">${accountSortHeader("Type", "type")}</th>
             <th class="account-currency-col">${accountSortHeader("Currency", "currency")}</th>
             <th class="account-money-col align-right">${accountSortHeader("Native Balance", "native_balance")}</th>
-            <th class="account-money-col align-right">${accountSortHeader("EUR Value", "balance")}</th>
+            <th class="account-money-col align-right">${accountSortHeader(`${projectCurrencyCode()} Value`, "balance")}</th>
           </tr>
         </thead>
         <tbody>
@@ -12668,7 +12751,7 @@ function accountTable(rows, data) {
               <td class="account-bucket-col">${quickFilterControl(row.capital_bucket, labelize(row.capital_bucket), { field: "capital_bucket" })}</td>
               <td class="account-type-col">${quickFilterControl(row.account_type, labelize(row.account_type), { field: "account_type" })}</td>
               <td class="account-currency-col">${quickFilterHtml(row.account_currency, currencyCell(row.account_currency), { field: "account_currency" })}</td>
-              <td class="account-money-col align-right ${signedClass(row.balance_native)}">${formatAccountMoney(row.balance_native, row.account_currency)}</td>
+              <td class="account-money-col align-right ${signedClass(row.balance_native)}">${formatAccountMoney(row.balance_native, row.account_currency, { project: false })}</td>
               <td class="account-money-col align-right ${signedClass(row.amount_eur_converted)}">${formatAccountMoney(row.amount_eur_converted, "EUR")}</td>
             </tr>
           `).join("") : emptyRow(9)}
@@ -13763,11 +13846,11 @@ function accountDetailsPanel(rows = []) {
         ${detailItem("Capital Bucket", labelize(row.capital_bucket))}
         ${detailItem("Type", labelize(row.account_type))}
         ${detailItemHtml("Currency", currencyCell(row.account_currency))}
-        ${detailItem("Native Balance", formatAccountMoney(row.balance_native, row.account_currency))}
-        ${detailItem("EUR Value", formatAccountMoney(row.amount_eur_converted, "EUR"))}
-        ${detailItem("USD Value", formatAccountMoney(row.amount_usd_converted, "USD"))}
-        ${detailItem("Credit Limit", formatAccountMoney(row.credit_limit_native, row.account_currency))}
-        ${detailItem("Available Credit", formatAccountMoney(row.available_credit_native, row.account_currency))}
+        ${detailItem("Native Balance", formatAccountMoney(row.balance_native, row.account_currency, { project: false }))}
+        ${detailItem("Project Value", formatAccountMoney(row.amount_eur_converted, "EUR"))}
+        ${detailItem("USD Value", formatAccountMoney(row.amount_usd_converted, "USD", { project: false }))}
+        ${detailItem("Credit Limit", formatAccountMoney(row.credit_limit_native, row.account_currency, { project: false }))}
+        ${detailItem("Available Credit", formatAccountMoney(row.available_credit_native, row.account_currency, { project: false }))}
         ${detailItem("Ledger Status", labelize(row.ledger_status))}
         ${detailItem("Review", labelize(row.review_status))}
         ${detailItem("Notes", row.notes)}
@@ -13847,7 +13930,7 @@ function transactionDetailsPanel(rows = []) {
         ${detailItemHtml("Country", countryCell(row.country_code))}
         ${detailItemHtml("Currency", currencyCell(row.statement_currency))}
         ${detailItem("Native Amount", signedNativeCurrency(row))}
-        ${detailItem("EUR Amount", signedCurrency(row))}
+        ${detailItem("Project Amount", signedCurrency(row))}
         ${detailItem("Ledger Status", labelize(row.ledger_status))}
         ${detailItem("Review", labelize(row.review_status))}
       </dl>
@@ -14792,8 +14875,8 @@ function portfolioInstrumentDetailsPanel(rows = []) {
         ${detailItem("Asset Bucket", labelize(row.asset_bucket))}
         ${detailItem("Exchange", row.exchange)}
         ${detailItem("ISIN", row.isin)}
-        ${detailItem("Native Value", formatWholeCurrency(row.current_value_native || 0, row.current_value_currency || row.base_currency || "EUR"))}
-        ${detailItem("EUR Value", formatWholeCurrency(row.current_value_eur || 0, "EUR"))}
+        ${detailItem("Native Value", formatWholeCurrency(row.current_value_native || 0, row.current_value_currency || row.base_currency || "EUR", { project: false }))}
+        ${detailItem("Project Value", formatWholeCurrency(row.current_value_eur || 0, "EUR"))}
         ${detailItem("Recommended Buy", portfolioBuyNeededMainLabel(row))}
         ${detailItem("Funding Target To Date", formatWholeCurrency(row.funding_target_to_date_eur || 0, "EUR"))}
         ${detailItem("Full Funding Backlog", formatWholeCurrency(row.funding_backlog_eur || 0, "EUR"))}
@@ -15100,7 +15183,14 @@ async function loadAboutChangelog(options = {}) {
     state.aboutChangelog = data;
   } catch (error) {
     if (requestId !== aboutChangelogRequestId) return;
-    state.error.aboutChangelog = friendlyFetchError(error);
+    try {
+      const body = await fetchText("/CHANGELOG.md");
+      if (requestId !== aboutChangelogRequestId) return;
+      state.aboutChangelog = { ok: true, source: "CHANGELOG.md", body };
+      state.error.aboutChangelog = "";
+    } catch {
+      state.error.aboutChangelog = friendlyFetchError(error);
+    }
   } finally {
     if (requestId !== aboutChangelogRequestId) return;
     state.loading.aboutChangelog = false;
@@ -16683,6 +16773,19 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
+async function fetchText(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: { Accept: "text/plain,text/markdown,*/*", ...(options.headers || {}) } });
+  if (!response.ok) {
+    const error = new Error(`${response.status} ${response.statusText}`);
+    error.status = response.status;
+    error.statusText = response.statusText;
+    throw error;
+  }
+  const text = await response.text();
+  if (/<!doctype html/i.test(text.slice(0, 80))) throw new Error("Changelog markdown was not available.");
+  return text;
+}
+
 function friendlyFetchError(error) {
   return `Unable to load live data.${error.message ? ` ${error.message}` : ""}`.trim();
 }
@@ -17393,25 +17496,25 @@ function signedNativeCurrency(row) {
   if (state.privacyMode) return privacyAmount();
   const amount = Math.abs(Number(row.statement_amount || 0));
   const currency = row.statement_currency || "EUR";
-  if (row.transaction_class === "income") return `+${formatCurrency(amount, currency)}`;
-  if (row.transaction_class === "expense") return `-${formatCurrency(amount, currency)}`;
-  return formatCurrency(amount, currency);
+  if (row.transaction_class === "income") return `+${formatCurrency(amount, currency, { project: false })}`;
+  if (row.transaction_class === "expense") return `-${formatCurrency(amount, currency, { project: false })}`;
+  return formatCurrency(amount, currency, { project: false });
 }
 
-function formatAccountMoney(value, currency = "EUR") {
-  return formatWholeCurrency(numericValue(value), currency || "EUR");
+function formatAccountMoney(value, currency = "EUR", options = {}) {
+  return formatWholeCurrency(numericValue(value), currency || "EUR", options);
 }
 
 function formatTradeMoney(value, currency = "EUR") {
   const amount = numericValue(value);
   if (!amount) return "-";
-  return formatCurrency(amount, currency || "EUR");
+  return formatCurrency(amount, currency || "EUR", { project: false });
 }
 
 function signedTradeMoney(value, currency = "EUR") {
   const amount = numericValue(value);
   if (!amount) return "-";
-  return signedAmount(amount, currency || "EUR");
+  return signedAmount(amount, currency || "EUR", { project: false });
 }
 
 function tradePlCell(value, pct, currency = "EUR") {
@@ -17429,7 +17532,7 @@ function tradePlLabel(value, pct, currency = "EUR") {
 function formatTradePrice(value, currency = "EUR") {
   const amount = numericValue(value);
   if (!amount) return "-";
-  return formatCurrency(amount, currency || "EUR");
+  return formatCurrency(amount, currency || "EUR", { project: false });
 }
 
 function formatQuantity(value) {
@@ -17601,10 +17704,11 @@ function numericValue(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function formatCurrency(value, currency = "EUR") {
+function formatCurrency(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
-  const numeric = Number(value || 0);
-  const code = normalizeCurrencyCode(currency) || "EUR";
+  const money = projectMoneyValue(value, currency, options);
+  const numeric = money.value;
+  const code = money.currency;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -17616,10 +17720,11 @@ function formatCurrency(value, currency = "EUR") {
   }
 }
 
-function formatWholeCurrency(value, currency = "EUR") {
+function formatWholeCurrency(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
-  const numeric = Number(value || 0);
-  const code = normalizeCurrencyCode(currency) || "EUR";
+  const money = projectMoneyValue(value, currency, options);
+  const numeric = money.value;
+  const code = money.currency;
   try {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -17647,16 +17752,16 @@ function formatNumberForInput(value, fractionDigits = 0) {
   return formatted.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
 }
 
-function signedAmount(value, currency = "EUR") {
+function signedAmount(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
   const numeric = Number(value || 0);
-  return `${numeric >= 0 ? "+" : "-"}${formatCurrency(Math.abs(numeric), currency)}`;
+  return `${numeric >= 0 ? "+" : "-"}${formatCurrency(Math.abs(numeric), currency, options)}`;
 }
 
-function signedWholeAmount(value, currency = "EUR") {
+function signedWholeAmount(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
   const numeric = Number(value || 0);
-  return `${numeric >= 0 ? "+" : "-"}${formatWholeCurrency(Math.abs(numeric), currency)}`;
+  return `${numeric >= 0 ? "+" : "-"}${formatWholeCurrency(Math.abs(numeric), currency, options)}`;
 }
 
 function signedPercent(value) {
@@ -17734,12 +17839,13 @@ function shortMonthLabel(value) {
   return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
-function formatShortCurrency(value, currency = "EUR") {
+function formatShortCurrency(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
-  const numeric = numericValue(value);
+  const money = projectMoneyValue(value, currency, options);
+  const numeric = numericValue(money.value);
   const sign = numeric < 0 ? "-" : "";
   const abs = Math.abs(numeric);
-  const code = normalizeCurrencyCode(currency) || "EUR";
+  const code = money.currency;
   const compact = (amount) => {
     try {
       return new Intl.NumberFormat("en-US", {
@@ -17753,15 +17859,16 @@ function formatShortCurrency(value, currency = "EUR") {
   };
   if (abs >= 1_000_000) return `${sign}${compact(abs / 1_000_000)}m`;
   if (abs >= 1_000) return `${sign}${compact(abs / 1_000)}k`;
-  return formatWholeCurrency(numeric, currency);
+  return formatWholeCurrency(numeric, code, { project: false });
 }
 
-function formatChartAxisCurrency(value, currency = "EUR") {
+function formatChartAxisCurrency(value, currency = "EUR", options = {}) {
   if (state.privacyMode) return privacyAmount();
-  const numeric = numericValue(value);
+  const money = projectMoneyValue(value, currency, options);
+  const numeric = numericValue(money.value);
   const sign = numeric < 0 ? "-" : "";
   const abs = Math.abs(numeric);
-  const code = normalizeCurrencyCode(currency) || "EUR";
+  const code = money.currency;
   const symbol = currencySymbol(code) || `${code} `;
   const compactValue = (amount, suffix) => {
     const fixed = amount >= 10 ? amount.toFixed(1) : amount.toFixed(2);
@@ -17769,7 +17876,7 @@ function formatChartAxisCurrency(value, currency = "EUR") {
   };
   if (abs >= 1_000_000) return compactValue(abs / 1_000_000, "m");
   if (abs >= 1_000) return `${sign}${symbol}${formatNumber(Math.round(abs / 1000))}k`;
-  return formatWholeCurrency(numeric, currency);
+  return formatWholeCurrency(numeric, code, { project: false });
 }
 
 function privacyAmount() {

@@ -16,6 +16,7 @@ SETUP_DIR = ROOT / ".ledger_public_setup"
 SETUP_MARKER = SETUP_DIR / "google_configured"
 DEFAULT_CREDENTIALS = Path("credentials/ledger-service-account.json")
 STARTER_WORKBOOK = ROOT / "starter" / "ledger_starter_workbook.xlsx"
+SUPPORTED_PROJECT_CURRENCIES = ("EUR", "USD", "AED", "RON", "GBP", "CHF", "CAD", "AUD", "JPY")
 
 
 def main() -> int:
@@ -57,8 +58,10 @@ def main() -> int:
         if not spreadsheet_id:
             print("Could not read a spreadsheet ID. Paste the full Google Sheet URL or the ID between /d/ and /edit.")
 
-    write_env(credentials_path, spreadsheet_id)
-    write_marker(spreadsheet_id)
+    project_currency = ask_project_currency()
+
+    write_env(credentials_path, spreadsheet_id, project_currency)
+    write_marker(spreadsheet_id, project_currency)
     print(f"\nWrote {ENV_PATH}")
 
     if args.no_validate:
@@ -91,6 +94,15 @@ def existing_setup_is_complete() -> bool:
         and bool(credentials)
         and resolve_path(credentials).exists()
     )
+
+
+def ask_project_currency() -> str:
+    supported = " / ".join(SUPPORTED_PROJECT_CURRENCIES)
+    while True:
+        raw = input(f"\nProject currency [{supported}] [EUR]: ").strip().upper() or "EUR"
+        if raw in SUPPORTED_PROJECT_CURRENCIES:
+            return raw
+        print(f"Choose one of: {supported}")
 
 
 def ask_path(prompt: str, default: Path) -> Path:
@@ -139,7 +151,7 @@ def read_env() -> dict[str, str]:
     return values
 
 
-def write_env(credentials_path: Path, spreadsheet_id: str) -> None:
+def write_env(credentials_path: Path, spreadsheet_id: str, project_currency: str) -> None:
     relative_credentials = credentials_path.relative_to(ROOT) if credentials_path.is_relative_to(ROOT) else credentials_path
     ENV_PATH.write_text(
         "\n".join(
@@ -147,6 +159,7 @@ def write_env(credentials_path: Path, spreadsheet_id: str) -> None:
                 "LEDGER_STORE=google",
                 f"LEDGER_SPREADSHEET_ID={spreadsheet_id}",
                 f"GOOGLE_APPLICATION_CREDENTIALS={relative_credentials.as_posix()}",
+                f"LEDGER_PROJECT_CURRENCY={project_currency}",
                 "",
             ]
         ),
@@ -154,10 +167,10 @@ def write_env(credentials_path: Path, spreadsheet_id: str) -> None:
     )
 
 
-def write_marker(spreadsheet_id: str) -> None:
+def write_marker(spreadsheet_id: str, project_currency: str) -> None:
     SETUP_DIR.mkdir(parents=True, exist_ok=True)
     SETUP_MARKER.write_text(
-        f"configured_at={datetime.utcnow().isoformat()}Z\nspreadsheet_id={spreadsheet_id}\n",
+        f"configured_at={datetime.utcnow().isoformat()}Z\nspreadsheet_id={spreadsheet_id}\nproject_currency={project_currency}\n",
         encoding="utf-8",
     )
 

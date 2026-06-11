@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-11
 
+- Added switchable Project Currency support, setup-time Project Currency selection, expanded starter FX rates, and a hardened Settings changelog loader.
 - Added Settings > About with copyright, license, contact, disclaimer, and changelog subpages linked to `CHANGELOG.md`.
 - Added Google Sheets mode using a user-owned spreadsheet and service-account JSON.
 - Added `starter/ledger_starter_workbook.xlsx` as the starter database template with mock data and reference tabs.

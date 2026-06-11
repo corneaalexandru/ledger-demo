@@ -20,7 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from ledger_core.backups import backup_local_data
-from ledger_core.fx import DEFAULT_CONVERTER, normalize_currency as core_normalize_currency
+from ledger_core.fx import DEFAULT_CONVERTER, DEFAULT_RATES_TO_EUR, SUPPORTED_CONVERSION_CURRENCIES, normalize_currency as core_normalize_currency
 from ledger_core.google_sheets import GoogleSheetsConfig, GoogleSheetsLedgerStore
 from ledger_core.health import data_health_summary
 from ledger_core.local_csv import LocalCsvLedgerStore
@@ -188,6 +188,7 @@ if SHEETS != CORE_SHEETS:
 STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
 STORE_MODE = "google"
 STORE_DETAILS: dict[str, str] = {}
+PROJECT_CURRENCY = "EUR"
 
 
 def money(value: float) -> float:
@@ -741,6 +742,9 @@ def default_reference_sheets() -> dict[str, tuple[list[str], list[dict]]]:
         ("RON", "0.2000", "0.2170", TODAY.isoformat(), "starter", "Offline starter rate"),
         ("GBP", "1.1700", "1.2720", TODAY.isoformat(), "starter", "Offline starter rate"),
         ("CHF", "1.0400", "1.1300", TODAY.isoformat(), "starter", "Offline starter rate"),
+        ("CAD", "0.6700", "0.7280", TODAY.isoformat(), "starter", "Offline starter rate"),
+        ("AUD", "0.6100", "0.6630", TODAY.isoformat(), "starter", "Offline starter rate"),
+        ("JPY", "0.0060", "0.0065", TODAY.isoformat(), "starter", "Offline starter rate"),
     ]
 
     rule_headers = ["rule_id", "field", "contains", "category_id", "subcategory_id", "transaction_class", "notes"]
@@ -1754,7 +1758,10 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
         if not str(target).startswith(str(STATIC_DIR.resolve())) or not target.exists() or not target.is_file():
             target = STATIC_DIR / "index.html"
         content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
-        self.send_bytes(target.read_bytes(), content_type)
+        content = target.read_bytes()
+        if target.name == "index.html":
+            content = inject_app_config(content.decode("utf-8")).encode("utf-8")
+        self.send_bytes(content, content_type)
 
 
 def flatten_mip_values(values: dict) -> dict:
@@ -1781,6 +1788,23 @@ def read_changelog_text() -> str:
 
 def read_changelog_payload() -> dict:
     return {"ok": True, "source": "CHANGELOG.md", "body": read_changelog_text()}
+
+
+def app_config_payload() -> dict:
+    return {
+        "projectCurrency": PROJECT_CURRENCY,
+        "supportedProjectCurrencies": list(SUPPORTED_CONVERSION_CURRENCIES),
+        "fxRatesToEur": {currency: str(rate) for currency, rate in DEFAULT_RATES_TO_EUR.items()},
+    }
+
+
+def inject_app_config(html: str) -> str:
+    script = (
+        "<script>"
+        f"window.LEDGER_APP_CONFIG={json.dumps(app_config_payload(), separators=(',', ':'))};"
+        "</script>"
+    )
+    return html.replace("</head>", f"    {script}\n  </head>", 1)
 
 
 def public_data_health() -> dict:
@@ -1920,7 +1944,9 @@ def resolve_path(value: str) -> Path:
 
 
 def configure_store(args: argparse.Namespace, env: dict[str, str]) -> None:
-    global STORE, STORE_MODE, STORE_DETAILS
+    global PROJECT_CURRENCY, STORE, STORE_MODE, STORE_DETAILS
+    configured_currency = normalize_currency(env_setting(env, "LEDGER_PROJECT_CURRENCY", "EUR"))
+    PROJECT_CURRENCY = configured_currency if configured_currency in SUPPORTED_CONVERSION_CURRENCIES else "EUR"
     mode = (args.store or env_setting(env, "LEDGER_STORE", "google")).strip().lower()
     if mode not in {"local", "google"}:
         raise SystemExit("LEDGER_STORE must be either 'local' or 'google'.")
