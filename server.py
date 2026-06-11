@@ -17,6 +17,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from ledger_core.backups import backup_local_data
+from ledger_core.fx import DEFAULT_CONVERTER, normalize_currency as core_normalize_currency
+from ledger_core.health import data_health_summary
+from ledger_core.local_csv import LocalCsvLedgerStore
+from ledger_core.reports import report_presets
+from ledger_core.schemas import SHEETS as CORE_SHEETS
+
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
@@ -169,6 +176,11 @@ SHEETS = {
     "portfolio_exit_phases": PHASE_HEADERS,
 }
 
+if SHEETS != CORE_SHEETS:
+    raise RuntimeError("Public server schema drifted from ledger_core.schemas.")
+
+STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
+
 
 def money(value: float) -> float:
     return round(float(value or 0), 2)
@@ -197,8 +209,7 @@ def money_text(value: float) -> str:
 
 
 def normalize_currency(value, default: str = "EUR") -> str:
-    text = str(value or "").strip().upper()
-    return text if re.fullmatch(r"[A-Z]{3}", text) else default
+    return core_normalize_currency(value, default)
 
 
 def fx_rate_to_eur(currency: str) -> float:
@@ -206,11 +217,7 @@ def fx_rate_to_eur(currency: str) -> float:
 
 
 def convert_currency(amount: float, source_currency: str, target_currency: str = "EUR") -> float:
-    source_rate = fx_rate_to_eur(source_currency)
-    target_rate = fx_rate_to_eur(target_currency)
-    if not target_rate:
-        return amount
-    return money(amount * source_rate / target_rate)
+    return float(DEFAULT_CONVERTER.convert(amount, source_currency, target_currency))
 
 
 def row_amount(row: dict, *keys: str) -> float:
@@ -290,23 +297,14 @@ def rows_path(sheet_name: str) -> Path:
 
 
 def read_rows(sheet_name: str) -> list[dict]:
-    path = rows_path(sheet_name)
-    if not path.exists():
-        return []
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        return [normalize_row(sheet_name, dict(row)) for row in csv.DictReader(handle)]
+    migrate_legacy_data_paths()
+    return STORE.list_rows(sheet_name)
 
 
 def write_rows(sheet_name: str, rows: list[dict]) -> None:
     migrate_legacy_data_paths()
     SHEET_DIR.mkdir(parents=True, exist_ok=True)
-    headers = SHEETS[sheet_name]
-    normalized_rows = [normalize_row(sheet_name, row) for row in rows]
-    with rows_path(sheet_name).open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=headers, extrasaction="ignore")
-        writer.writeheader()
-        for row in normalized_rows:
-            writer.writerow({header: row.get(header, "") for header in headers})
+    STORE.write_rows(sheet_name, rows)
     write_local_workbook()
 
 
@@ -1441,6 +1439,12 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
                 return self.send_json(api_trades(params))
             if parsed.path == "/api/statements/import":
                 return self.send_json(statement_preview())
+            if parsed.path == "/api/cache/status":
+                return self.send_json(public_cache_status())
+            if parsed.path == "/api/data-health":
+                return self.send_json(public_data_health())
+            if parsed.path == "/api/report-presets":
+                return self.send_json({"ok": True, "rows": report_presets()})
             if parsed.path == "/api/refresh":
                 write_local_workbook()
                 return self.send_json({"ok": True, "refreshed": True})
@@ -1471,6 +1475,9 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
                 data = statement_preview()
                 data.update({"rows": [], "unsupported_rows": [], "cleared_files": 1, "parsed_transactions": 0, "importable": 0, "duplicates": 0})
                 return self.send_json(data)
+            if parsed.path == "/api/backup":
+                archive = backup_local_data(DATA_DIR, ROOT / "local_ledger_backups", label="ledger-public")
+                return self.send_json({"ok": True, "backup": archive.name, "path": str(archive)})
             tx_id = self.path_id(parsed.path, "/api/transactions/", "/statement/attachments")
             if tx_id:
                 self.discard_body()
@@ -1658,6 +1665,24 @@ def flatten_mip_values(values: dict) -> dict:
             if str(next_values.get(key, "")).strip()
         )
     return next_values
+
+
+def public_data_health() -> dict:
+    return data_health_summary({sheet_name: read_rows(sheet_name) for sheet_name in SHEETS}, today=TODAY)
+
+
+def public_cache_status() -> dict:
+    migrate_legacy_data_paths()
+    return {
+        "ok": True,
+        "ttl_seconds": 0,
+        "memory": [
+            {"sheet": sheet_name, "rows": len(read_rows(sheet_name)), "source": "local_csv"}
+            for sheet_name in SHEETS
+        ],
+        "snapshot": {"path": str(WORKBOOK_PATH), "mode": "local_workbook"},
+        "last_snapshot_error": "",
+    }
 
 
 def transaction_statement(transaction_id: str) -> dict:

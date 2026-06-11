@@ -50,6 +50,8 @@ const state = {
   portfolioReturns: null,
   statementImport: null,
   globalSearch: null,
+  cacheStatus: null,
+  dataHealth: null,
   loading: {
     overview: false,
     accounts: false,
@@ -58,6 +60,7 @@ const state = {
     portfolioReturns: false,
     statementImport: false,
     globalSearch: false,
+    settingsDiagnostics: false,
   },
   error: {
     overview: "",
@@ -67,6 +70,7 @@ const state = {
     portfolioReturns: "",
     statementImport: "",
     globalSearch: "",
+    settingsDiagnostics: "",
   },
   accountFilters: defaultAccountFilters(),
   accountOffset: 0,
@@ -541,6 +545,7 @@ let statementImportRequestId = 0;
 let tradeRequestId = 0;
 let portfolioReturnsRequestId = 0;
 let globalSearchRequestId = 0;
+let settingsDiagnosticsRequestId = 0;
 
 const transactionFields = [
   ["transaction_id", "Transaction ID"],
@@ -9551,11 +9556,23 @@ function settingsSourceTruthDashboard({ stats = [] } = {}) {
 }
 
 function settingsSyncDashboard() {
+  const cache = state.cacheStatus || {};
+  const snapshot = cache.snapshot || {};
+  const memorySheets = Array.isArray(cache.memory) ? cache.memory.length : 0;
+  const health = state.dataHealth || {};
+  const healthValue = state.loading.settingsDiagnostics
+    ? "Checking"
+    : `${formatNumber(health.issue_count || 0)} issues`;
+  const healthNote = health.ok === false
+    ? Object.entries(health.counts || {}).map(([key, value]) => `${labelize(key)} ${formatNumber(value)}`).slice(0, 3).join(" · ")
+    : "No active data-health issues reported.";
   return `
     <section class="settings-layout settings-layout-single">
       ${panel("Data & Sync", settingsRows([
         ["Refresh policy", "Manual refresh", "Use the sidebar refresh when Google Sheets changes."],
-        ["Cache", "60 seconds", "Read model keeps the interface responsive between pulls."],
+        ["Memory cache", `${formatNumber(memorySheets)} sheets`, `TTL ${formatNumber(cache.ttl_seconds || 0)} seconds.`],
+        ["Snapshot cache", snapshot.path ? "SQLite ready" : "Local runtime", snapshot.path || "Public/local mode uses runtime files directly."],
+        ["Data health", healthValue, healthNote],
         ["Imports", "Local attachments", "Statements are linked to transactions and preserved in the project."],
         ["Portfolio instruments", "Manual values refresh", "Updates active instrument prices and brokerage account investment totals."],
       ], settingsSyncActions()))}
@@ -14890,7 +14907,10 @@ async function loadDataForView() {
   if (state.view === "search") {
     await loadGlobalSearch();
   }
-  if (state.view === "settings" && !overviewHasScope("summary")) await loadOverview({ scope: "summary" });
+  if (state.view === "settings") {
+    if (!overviewHasScope("summary")) await loadOverview({ scope: "summary" });
+    await loadSettingsDiagnostics();
+  }
   if (state.view === "portfolio" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
   if (state.view === "planning" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
   if (state.view === "accounts") await loadAccounts();
@@ -14902,6 +14922,32 @@ async function loadDataForView() {
     } else {
       await loadTrades();
     }
+  }
+}
+
+async function loadSettingsDiagnostics(options = {}) {
+  if (state.loading.settingsDiagnostics) return;
+  if (state.cacheStatus && state.dataHealth && !options.force) return;
+  const requestId = ++settingsDiagnosticsRequestId;
+  state.loading.settingsDiagnostics = true;
+  state.error.settingsDiagnostics = "";
+  render();
+  try {
+    const [cacheResult, healthResult] = await Promise.allSettled([
+      fetchJson("/api/cache/status"),
+      fetchJson("/api/data-health"),
+    ]);
+    if (requestId !== settingsDiagnosticsRequestId) return;
+    if (cacheResult.status === "fulfilled") state.cacheStatus = cacheResult.value;
+    if (healthResult.status === "fulfilled") state.dataHealth = healthResult.value;
+    const errors = [cacheResult, healthResult]
+      .filter((result) => result.status === "rejected")
+      .map((result) => friendlyFetchError(result.reason));
+    state.error.settingsDiagnostics = errors.join(" · ");
+  } finally {
+    if (requestId !== settingsDiagnosticsRequestId) return;
+    state.loading.settingsDiagnostics = false;
+    render();
   }
 }
 
