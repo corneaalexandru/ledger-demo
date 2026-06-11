@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,12 @@ SHEET_IMPORT_ALIASES = {
     # Excel-safe name, then setup copies it into the canonical Google tab.
     "portfolio_monthly_investment_plan": "portfolio_monthly_investment_pl",
 }
+GOOGLE_DATE_FIELDS = {
+    "mip_phase_end_date_target",
+    "price_as_of",
+    *{header for headers in SHEETS.values() for header in headers if header.endswith("_date")},
+}
+GOOGLE_SHEETS_DATE_EPOCH = date(1899, 12, 30)
 
 
 @dataclass(frozen=True)
@@ -67,7 +74,10 @@ class GoogleSheetsLedgerStore:
             sheet_headers = headers
         rows = []
         for raw_row in values[1:]:
-            row = {header: raw_row[index] if index < len(raw_row) else "" for index, header in enumerate(sheet_headers)}
+            row = {
+                header: google_sheet_value(header, raw_row[index] if index < len(raw_row) else "")
+                for index, header in enumerate(sheet_headers)
+            }
             rows.append(self._normalizer.normalize_row(sheet_name, {header: row.get(header, "") for header in headers}))
         return rows
 
@@ -200,3 +210,29 @@ def column_name(index: int) -> str:
 
 def quote_sheet_name(sheet_name: str) -> str:
     return "'" + sheet_name.replace("'", "''") + "'"
+
+
+def google_sheet_value(header: str, value: Any) -> Any:
+    if value is None:
+        return ""
+    if header not in GOOGLE_DATE_FIELDS:
+        return value
+    return google_date_serial_to_iso(value) or value
+
+
+def google_date_serial_to_iso(value: Any) -> str:
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, (int, float)):
+        serial = float(value)
+    elif isinstance(value, str) and value.strip().replace(".", "", 1).isdigit():
+        serial = float(value.strip())
+    else:
+        return ""
+    whole_days = int(serial)
+    if abs(serial - whole_days) > 0.000001:
+        return ""
+    parsed = GOOGLE_SHEETS_DATE_EPOCH + timedelta(days=whole_days)
+    if not 1900 <= parsed.year <= 2200:
+        return ""
+    return parsed.isoformat()

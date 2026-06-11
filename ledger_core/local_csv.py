@@ -73,6 +73,8 @@ class LocalCsvLedgerStore:
         elif sheet_name == "transactions_register":
             currency = normalize_currency(next_row.get("statement_currency"))
             next_row["statement_currency"] = currency
+            if has_value(next_row.get("statement_amount")):
+                next_row["sanitized_statement_amount"] = str(next_row.get("statement_amount"))
             native = first_value(next_row, "sanitized_statement_amount", "statement_amount")
             if has_value(native):
                 if not has_value(next_row.get("sanitized_statement_amount")):
