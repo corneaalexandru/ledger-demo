@@ -744,6 +744,7 @@ def default_reference_sheets() -> dict[str, tuple[list[str], list[dict]]]:
         ("CHF", "1.0400", "1.1300", TODAY.isoformat(), "starter", "Offline starter rate"),
         ("CAD", "0.6700", "0.7280", TODAY.isoformat(), "starter", "Offline starter rate"),
         ("AUD", "0.6100", "0.6630", TODAY.isoformat(), "starter", "Offline starter rate"),
+        ("INR", "0.0110", "0.0120", TODAY.isoformat(), "starter", "Offline starter rate"),
         ("JPY", "0.0060", "0.0065", TODAY.isoformat(), "starter", "Offline starter rate"),
     ]
 

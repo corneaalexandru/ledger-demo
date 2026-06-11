@@ -49,6 +49,7 @@ const PROJECT_CURRENCY_RATES_TO_EUR = {
   CHF: 1.04,
   CAD: 0.67,
   AUD: 0.61,
+  INR: 0.011,
   JPY: 0.006,
 };
 
@@ -225,6 +226,7 @@ const currencySymbolOverrides = {
   EUR: "€",
   GBP: "£",
   HKD: "HK$",
+  INR: "₹",
   JPY: "¥",
   RON: "lei",
   SGD: "S$",
@@ -9804,6 +9806,7 @@ function projectCurrencyName(currency = "") {
     CHF: "Swiss Franc",
     CAD: "Canadian Dollar",
     AUD: "Australian Dollar",
+    INR: "Indian Rupee",
     JPY: "Japanese Yen",
   }[normalizeCurrencyCode(currency)] || currencyName(currency);
 }

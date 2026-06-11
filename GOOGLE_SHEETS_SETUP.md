@@ -60,7 +60,7 @@ GOOGLE_APPLICATION_CREDENTIALS=credentials/ledger-service-account.json
 LEDGER_PROJECT_CURRENCY=EUR
 ```
 
-The wizard asks for Project Currency during setup. Supported values are EUR, USD, AED, RON, GBP, CHF, CAD, AUD, and JPY.
+The wizard asks for Project Currency during setup. Supported values are EUR, USD, AED, RON, GBP, CHF, CAD, AUD, INR, and JPY.
 
 ## 5. Start Ledger
 

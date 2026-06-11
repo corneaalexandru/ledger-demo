@@ -14,6 +14,7 @@ DEFAULT_RATES_TO_EUR = {
     "CHF": Decimal("1.04"),
     "CAD": Decimal("0.67"),
     "AUD": Decimal("0.61"),
+    "INR": Decimal("0.011"),
     "JPY": Decimal("0.006"),
 }
 

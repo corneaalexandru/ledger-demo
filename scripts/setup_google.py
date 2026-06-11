@@ -16,7 +16,7 @@ SETUP_DIR = ROOT / ".ledger_public_setup"
 SETUP_MARKER = SETUP_DIR / "google_configured"
 DEFAULT_CREDENTIALS = Path("credentials/ledger-service-account.json")
 STARTER_WORKBOOK = ROOT / "starter" / "ledger_starter_workbook.xlsx"
-SUPPORTED_PROJECT_CURRENCIES = ("EUR", "USD", "AED", "RON", "GBP", "CHF", "CAD", "AUD", "JPY")
+SUPPORTED_PROJECT_CURRENCIES = ("EUR", "USD", "AED", "RON", "GBP", "CHF", "CAD", "AUD", "INR", "JPY")
 
 
 def main() -> int:
