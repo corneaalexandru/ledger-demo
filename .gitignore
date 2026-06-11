@@ -8,5 +8,9 @@ __pycache__/
 
 # Runtime ledger data. Generated on first run and intentionally not versioned,
 # so users can pull app updates without overwriting their local ledger.
+local_ledger_data/
+local_ledger_workbook.xlsx
+
+# Legacy local data names from early public builds. Ignored and migrated on run.
 mock_google_sheet/
 mock_ledger_google_sheet.xlsx

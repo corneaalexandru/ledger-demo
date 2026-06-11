@@ -20,9 +20,24 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
-SHEET_DIR = ROOT / "mock_google_sheet"
-WORKBOOK_PATH = ROOT / "mock_ledger_google_sheet.xlsx"
+DATA_DIR = ROOT / "local_ledger_data"
+WORKBOOK_PATH = ROOT / "local_ledger_workbook.xlsx"
+LEGACY_DATA_DIR = ROOT / "mock_google_sheet"
+LEGACY_WORKBOOK_PATH = ROOT / "mock_ledger_google_sheet.xlsx"
+SHEET_DIR = DATA_DIR
 TODAY = date(2026, 6, 10)
+
+FX_RATES_TO_EUR = {
+    "EUR": 1.0,
+    "USD": 0.92,
+    "AED": 0.25,
+    "RON": 0.20,
+    "GBP": 1.17,
+    "CHF": 1.04,
+    "CAD": 0.67,
+    "AUD": 0.61,
+    "JPY": 0.006,
+}
 
 
 ACCOUNTS_HEADERS = [
@@ -173,6 +188,59 @@ def num(value, default: float = 0.0) -> float:
         return default
 
 
+def has_value(value) -> bool:
+    return str(value or "").strip() != ""
+
+
+def money_text(value: float) -> str:
+    return f"{money(value):.2f}"
+
+
+def normalize_currency(value, default: str = "EUR") -> str:
+    text = str(value or "").strip().upper()
+    return text if re.fullmatch(r"[A-Z]{3}", text) else default
+
+
+def fx_rate_to_eur(currency: str) -> float:
+    return FX_RATES_TO_EUR.get(normalize_currency(currency), 1.0)
+
+
+def convert_currency(amount: float, source_currency: str, target_currency: str = "EUR") -> float:
+    source_rate = fx_rate_to_eur(source_currency)
+    target_rate = fx_rate_to_eur(target_currency)
+    if not target_rate:
+        return amount
+    return money(amount * source_rate / target_rate)
+
+
+def row_amount(row: dict, *keys: str) -> float:
+    for key in keys:
+        if has_value(row.get(key)):
+            return num(row.get(key))
+    return 0.0
+
+
+def account_amount_eur(row: dict) -> float:
+    if has_value(row.get("amount_eur_converted")):
+        return num(row.get("amount_eur_converted"))
+    return convert_currency(num(row.get("balance_native")), row.get("account_currency", "EUR"), "EUR")
+
+
+def account_native_field_eur(row: dict, field: str) -> float:
+    return convert_currency(num(row.get(field)), row.get("account_currency", "EUR"), "EUR")
+
+
+def transaction_amount_eur(row: dict) -> float:
+    if has_value(row.get("amount_eur_converted")):
+        return num(row.get("amount_eur_converted"))
+    amount = row_amount(row, "sanitized_statement_amount", "statement_amount")
+    return convert_currency(amount, row.get("statement_currency", "EUR"), "EUR")
+
+
+def trade_value_eur(row: dict, field: str) -> float:
+    return convert_currency(num(row.get(field)), row.get("trade_currency", "EUR"), "EUR")
+
+
 def intish(value, default: int = 0) -> int:
     try:
         return int(float(str(value).replace(",", "")))
@@ -206,7 +274,18 @@ def truthy(value) -> bool:
     return str(value or "").strip().lower() not in {"", "0", "false", "no", "none"}
 
 
+def migrate_legacy_data_paths() -> None:
+    local_has_rows = DATA_DIR.exists() and any(DATA_DIR.glob("*.csv"))
+    if LEGACY_DATA_DIR.exists() and not local_has_rows:
+        if DATA_DIR.exists():
+            DATA_DIR.rmdir()
+        LEGACY_DATA_DIR.rename(DATA_DIR)
+    if LEGACY_WORKBOOK_PATH.exists() and not WORKBOOK_PATH.exists():
+        LEGACY_WORKBOOK_PATH.rename(WORKBOOK_PATH)
+
+
 def rows_path(sheet_name: str) -> Path:
+    migrate_legacy_data_paths()
     return SHEET_DIR / f"{sheet_name}.csv"
 
 
@@ -215,18 +294,49 @@ def read_rows(sheet_name: str) -> list[dict]:
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8", newline="") as handle:
-        return [dict(row) for row in csv.DictReader(handle)]
+        return [normalize_row(sheet_name, dict(row)) for row in csv.DictReader(handle)]
 
 
 def write_rows(sheet_name: str, rows: list[dict]) -> None:
+    migrate_legacy_data_paths()
     SHEET_DIR.mkdir(parents=True, exist_ok=True)
     headers = SHEETS[sheet_name]
+    normalized_rows = [normalize_row(sheet_name, row) for row in rows]
     with rows_path(sheet_name).open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=headers, extrasaction="ignore")
         writer.writeheader()
-        for row in rows:
+        for row in normalized_rows:
             writer.writerow({header: row.get(header, "") for header in headers})
-    write_mock_workbook()
+    write_local_workbook()
+
+
+def normalize_row(sheet_name: str, row: dict) -> dict:
+    next_row = dict(row)
+    if sheet_name == "accounts_register":
+        currency = normalize_currency(next_row.get("account_currency"))
+        next_row["account_currency"] = currency
+        if has_value(next_row.get("balance_native")):
+            native = num(next_row.get("balance_native"))
+            next_row["amount_eur_converted"] = money_text(convert_currency(native, currency, "EUR"))
+            next_row["amount_usd_converted"] = money_text(convert_currency(native, currency, "USD"))
+    elif sheet_name == "transactions_register":
+        currency = normalize_currency(next_row.get("statement_currency"))
+        next_row["statement_currency"] = currency
+        if has_value(next_row.get("sanitized_statement_amount")) or has_value(next_row.get("statement_amount")):
+            native = row_amount(next_row, "sanitized_statement_amount", "statement_amount")
+            if not has_value(next_row.get("sanitized_statement_amount")):
+                next_row["sanitized_statement_amount"] = money_text(native)
+            next_row["amount_eur_converted"] = money_text(convert_currency(native, currency, "EUR"))
+            next_row["amount_usd_converted"] = money_text(convert_currency(native, currency, "USD"))
+    elif sheet_name == "trades_register":
+        next_row["trade_currency"] = normalize_currency(next_row.get("trade_currency"))
+    elif sheet_name == "portfolio_strategy_instruments":
+        currency = normalize_currency(next_row.get("current_value_currency") or next_row.get("base_currency"))
+        next_row["base_currency"] = normalize_currency(next_row.get("base_currency") or currency)
+        next_row["current_value_currency"] = currency
+        if has_value(next_row.get("current_value_native")):
+            next_row["current_value_eur"] = money_text(convert_currency(num(next_row.get("current_value_native")), currency, "EUR"))
+    return next_row
 
 
 def default_accounts() -> list[dict]:
@@ -268,13 +378,11 @@ def default_accounts() -> list[dict]:
             "account_status": "active",
             "capital_bucket": "investment",
             "account_type": "brokerage",
-            "account_currency": "EUR",
-            "balance_native": "146500",
-            "amount_eur_converted": "146500",
-            "amount_usd_converted": "158220",
+            "account_currency": "USD",
+            "balance_native": "159239.13",
             "ledger_status": "accountable",
             "review_status": "reviewed",
-            "notes": "ETF and equity portfolio",
+            "notes": "ETF and equity portfolio held in USD",
         },
         {
             "account_id": "acct_000004",
@@ -283,13 +391,11 @@ def default_accounts() -> list[dict]:
             "account_status": "active",
             "capital_bucket": "retirement",
             "account_type": "pension",
-            "account_currency": "EUR",
-            "balance_native": "68400",
-            "amount_eur_converted": "68400",
-            "amount_usd_converted": "73872",
+            "account_currency": "RON",
+            "balance_native": "342000",
             "ledger_status": "accountable",
             "review_status": "reviewed",
-            "notes": "Long-term pension capital",
+            "notes": "Long-term pension capital in local currency",
         },
         {
             "account_id": "acct_000005",
@@ -298,12 +404,10 @@ def default_accounts() -> list[dict]:
             "account_status": "active",
             "capital_bucket": "liability",
             "account_type": "credit_card",
-            "account_currency": "EUR",
-            "balance_native": "-3720",
-            "amount_eur_converted": "-3720",
-            "amount_usd_converted": "-4018",
-            "credit_limit_native": "12000",
-            "available_credit_native": "8280",
+            "account_currency": "AED",
+            "balance_native": "-14880",
+            "credit_limit_native": "48000",
+            "available_credit_native": "33120",
             "ledger_status": "accountable",
             "review_status": "reviewed",
             "notes": "Paid monthly",
@@ -350,7 +454,7 @@ def default_transactions() -> list[dict]:
                     "category_id": category,
                     "subcategory_id": subcategory,
                     "transaction_class": klass,
-                    "source_system": "Mock Sheet",
+                    "source_system": "Local Ledger",
                     "country_code": "AE",
                     "statement_currency": "EUR",
                     "statement_amount": f"{amount:.2f}",
@@ -374,17 +478,17 @@ def default_transactions() -> list[dict]:
 
 def default_trades() -> list[dict]:
     seed = [
-        ("tr_000001", "VWCE", "Vanguard FTSE All-World UCITS ETF", 410, "2023-09-15", 97.4, "", "", 123.2, 12.0, "active"),
-        ("tr_000002", "CSPX", "iShares Core S&P 500 UCITS ETF", 96, "2024-01-18", 430.0, "", "", 548.5, 18.0, "active"),
-        ("tr_000003", "EIMI", "iShares Core MSCI EM IMI", 820, "2024-03-12", 29.6, "", "", 34.1, 8.0, "active"),
-        ("tr_000004", "MSFT", "Microsoft", 45, "2024-05-10", 376.0, "", "", 451.0, 22.0, "active"),
-        ("tr_000005", "ASML", "ASML Holding", 18, "2024-10-02", 664.0, "", "", 733.0, 16.0, "active"),
-        ("tr_000006", "NVDA", "NVIDIA", 90, "2024-02-20", 78.0, "2025-08-12", 122.0, 122.0, 14.0, "closed"),
-        ("tr_000007", "TSLA", "Tesla", 35, "2024-07-08", 248.0, "2025-02-21", 211.0, 211.0, 11.0, "closed"),
-        ("tr_000008", "AGGU", "iShares Global Aggregate Bond", 540, "2025-01-17", 5.21, "", "", 5.43, 5.0, "active"),
+        ("tr_000001", "VWCE", "Vanguard FTSE All-World UCITS ETF", 410, "2023-09-15", 97.4, "", "", 123.2, 12.0, "active", "EUR"),
+        ("tr_000002", "CSPX", "iShares Core S&P 500 UCITS ETF", 96, "2024-01-18", 430.0, "", "", 548.5, 18.0, "active", "USD"),
+        ("tr_000003", "EIMI", "iShares Core MSCI EM IMI", 820, "2024-03-12", 29.6, "", "", 34.1, 8.0, "active", "EUR"),
+        ("tr_000004", "MSFT", "Microsoft", 45, "2024-05-10", 376.0, "", "", 451.0, 22.0, "active", "USD"),
+        ("tr_000005", "ASML", "ASML Holding", 18, "2024-10-02", 664.0, "", "", 733.0, 16.0, "active", "EUR"),
+        ("tr_000006", "NVDA", "NVIDIA", 90, "2024-02-20", 78.0, "2025-08-12", 122.0, 122.0, 14.0, "closed", "USD"),
+        ("tr_000007", "TSLA", "Tesla", 35, "2024-07-08", 248.0, "2025-02-21", 211.0, 211.0, 11.0, "closed", "USD"),
+        ("tr_000008", "AGGU", "iShares Global Aggregate Bond", 540, "2025-01-17", 5.21, "", "", 5.43, 5.0, "active", "EUR"),
     ]
     rows = []
-    for trade_id, symbol, name, qty, entry_date, entry, exit_date, exit_price, current, fee, status in seed:
+    for trade_id, symbol, name, qty, entry_date, entry, exit_date, exit_price, current, fee, status, currency in seed:
         realized = (num(exit_price) - entry) * qty - fee if status == "closed" else 0
         market_value = current * qty if status == "active" else 0
         unrealized = (current - entry) * qty - fee if status == "active" else 0
@@ -397,7 +501,7 @@ def default_trades() -> list[dict]:
                 "symbol": symbol,
                 "asset_name": name,
                 "instrument_type": "ETF" if symbol in {"VWCE", "CSPX", "EIMI", "AGGU"} else "Stock",
-                "trade_currency": "EUR",
+                "trade_currency": currency,
                 "quantity": str(qty),
                 "entry_date": entry_date,
                 "entry_price": f"{entry:.2f}",
@@ -414,7 +518,7 @@ def default_trades() -> list[dict]:
                 "unrealized_pl_pct": f"{(unrealized / (entry * qty) * 100) if entry * qty else 0:.2f}",
                 "ledger_status": "accountable",
                 "review_status": "reviewed",
-                "notes": "Mock investment row",
+                "notes": "Sample investment row",
             }
         )
     return rows
@@ -450,14 +554,14 @@ def default_portfolio_rows() -> list[dict]:
             "portfolio_id": "growth",
             "portfolio_name": "Growth Portfolio",
             "provider": "IBKR",
-            "base_currency": "EUR",
+            "base_currency": "USD",
             "asset_bucket": "single_stocks",
             "asset_name": "Quality Growth Basket",
             "ticker": "MSFT/ASML",
             "exchange": "NASDAQ/Euronext",
             "asset_class": "Equity",
-            "current_value_native": "43600",
-            "current_value_currency": "EUR",
+            "current_value_native": "47391.30",
+            "current_value_currency": "USD",
             "current_value_eur": "43600",
             "target_allocation_pct": "20",
             "expected_cagr_pct": "8",
@@ -498,14 +602,14 @@ def default_portfolio_rows() -> list[dict]:
             "portfolio_id": "pension",
             "portfolio_name": "Pension Portfolio",
             "provider": "PensionCo",
-            "base_currency": "EUR",
+            "base_currency": "RON",
             "asset_bucket": "retirement",
             "asset_name": "Employer Pension Fund",
             "ticker": "PENSION",
             "exchange": "Internal",
             "asset_class": "Pension",
-            "current_value_native": "68400",
-            "current_value_currency": "EUR",
+            "current_value_native": "342000",
+            "current_value_currency": "RON",
             "current_value_eur": "68400",
             "target_allocation_pct": "15",
             "expected_cagr_pct": "4.8",
@@ -591,7 +695,8 @@ def default_phase_rows() -> list[dict]:
     ]
 
 
-def ensure_mock_files(reset: bool = False) -> None:
+def ensure_local_data(reset: bool = False) -> None:
+    migrate_legacy_data_paths()
     SHEET_DIR.mkdir(parents=True, exist_ok=True)
     defaults = {
         "accounts_register": default_accounts,
@@ -604,7 +709,7 @@ def ensure_mock_files(reset: bool = False) -> None:
     for sheet_name, factory in defaults.items():
         if reset or not rows_path(sheet_name).exists():
             write_rows(sheet_name, factory())
-    write_mock_workbook()
+    write_local_workbook()
 
 
 def column_letter(index: int) -> str:
@@ -647,7 +752,8 @@ def write_workbook_part(zf: zipfile.ZipFile, path: str, content: str) -> None:
     zf.writestr(info, content)
 
 
-def write_mock_workbook() -> None:
+def write_local_workbook() -> None:
+    migrate_legacy_data_paths()
     SHEET_DIR.mkdir(parents=True, exist_ok=True)
     sheet_names = list(SHEETS)
     with zipfile.ZipFile(WORKBOOK_PATH, "w") as zf:
@@ -821,36 +927,36 @@ def duplicate_rows(sheet_name: str, id_field: str, prefix: str, ids: list[str]) 
 
 def account_summary(rows: list[dict]) -> dict:
     active = active_rows(rows)
-    total = money(sum(num(row.get("amount_eur_converted"), num(row.get("balance_native"))) for row in active))
+    total = money(sum(account_amount_eur(row) for row in active))
     by_bucket = defaultdict(float)
     by_provider = defaultdict(float)
     by_type = defaultdict(float)
     by_currency = defaultdict(float)
     credit_cards = []
     for row in active:
-        amount = num(row.get("amount_eur_converted"), num(row.get("balance_native")))
+        amount = account_amount_eur(row)
         by_bucket[row.get("capital_bucket") or "other"] += amount
         by_provider[row.get("provider_id") or "Unknown"] += amount
         by_type[row.get("account_type") or "account"] += amount
         by_currency[row.get("account_currency") or "EUR"] += amount
         if "credit" in str(row.get("account_type", "")).lower():
-            used = abs(num(row.get("balance_native")))
-            limit = num(row.get("credit_limit_native"))
+            used = abs(account_native_field_eur(row, "balance_native"))
+            limit = account_native_field_eur(row, "credit_limit_native")
             credit_cards.append(
                 {
                     "account_id": row.get("account_id"),
                     "provider_id": row.get("provider_id"),
                     "used_eur": money(used),
                     "limit_eur": money(limit),
-                    "available_eur": money(num(row.get("available_credit_native"))),
+                    "available_eur": money(account_native_field_eur(row, "available_credit_native")),
                     "utilization_pct": money((used / limit * 100) if limit else 0),
                 }
             )
     liquid = by_bucket["liquid"] + by_bucket["reserve"]
     return {
         "net_worth_eur": total,
-        "assets_eur": money(sum(max(num(row.get("amount_eur_converted"), num(row.get("balance_native"))), 0) for row in active)),
-        "liabilities_eur": money(sum(min(num(row.get("amount_eur_converted"), num(row.get("balance_native"))), 0) for row in active)),
+        "assets_eur": money(sum(max(account_amount_eur(row), 0) for row in active)),
+        "liabilities_eur": money(sum(min(account_amount_eur(row), 0) for row in active)),
         "liquid_capital_eur": money(liquid),
         "non_liquid_capital_eur": money(total - liquid),
         "active_accounts": len(active),
@@ -864,7 +970,7 @@ def account_summary(rows: list[dict]) -> dict:
 
 
 def transaction_amount(row: dict) -> float:
-    return num(row.get("amount_eur_converted"), num(row.get("sanitized_statement_amount"), num(row.get("statement_amount"))))
+    return transaction_amount_eur(row)
 
 
 def transaction_summary(rows: list[dict]) -> dict:
@@ -971,7 +1077,7 @@ def planning_targets(monthly_series: list[dict]) -> tuple[list[dict], list[dict]
             {
                 "year": int(year),
                 "source": "monthly_targets",
-                "income_target_label": "Mock recurring income",
+                "income_target_label": "Sample recurring income",
                 "income_baseline_eur": money(income),
                 "expense_ceiling_eur": money(ceiling),
                 "target_savings_eur": money(target),
@@ -990,10 +1096,10 @@ def planning_targets(monthly_series: list[dict]) -> tuple[list[dict], list[dict]
 
 def trade_summary(rows: list[dict]) -> dict:
     active = active_rows(rows)
-    realized = sum(num(row.get("realized_pl_native")) for row in active)
-    unrealized = sum(num(row.get("unrealized_pl_native")) for row in active)
-    market_value = sum(num(row.get("current_market_value_native")) for row in active)
-    fees = sum(num(row.get("fees_native")) for row in active)
+    realized = sum(trade_value_eur(row, "realized_pl_native") for row in active)
+    unrealized = sum(trade_value_eur(row, "unrealized_pl_native") for row in active)
+    market_value = sum(trade_value_eur(row, "current_market_value_native") for row in active)
+    fees = sum(trade_value_eur(row, "fees_native") for row in active)
     active_positions = sum(1 for row in active if row.get("position_status") == "active")
     closed_positions = sum(1 for row in active if row.get("position_status") == "closed")
     return {
@@ -1259,17 +1365,17 @@ def trade_insight_tables(rows: list[dict]) -> dict:
 def statement_preview() -> dict:
     rows = [
         {
-            "import_record_id": "mock_import_001",
+            "import_record_id": "local_import_001",
             "import_decision": "import",
-            "decision_reason": "New mock card charge",
+            "decision_reason": "New sample card charge",
             "match_basis": "No existing transaction id",
             "source_type": "csv",
-            "source_file": "mock_statement_june_2026.csv",
-            "file_name": "mock_statement_june_2026.csv",
+            "source_file": "sample_statement_june_2026.csv",
+            "file_name": "sample_statement_june_2026.csv",
             "proposed_transaction_id": "tx_import_001",
             "transaction_date": "2026-06-08",
             "posted_date": "2026-06-08",
-            "memo": "Mock statement lunch",
+            "memo": "Sample statement lunch",
             "transaction_class": "expense",
             "category_id": "Food",
             "subcategory_id": "dining",
@@ -1280,13 +1386,13 @@ def statement_preview() -> dict:
             "sanitized_statement_amount": "-36.20",
         },
         {
-            "import_record_id": "mock_import_002",
+            "import_record_id": "local_import_002",
             "import_decision": "duplicate",
             "decision_reason": "Same amount and date already exists",
             "match_basis": "amount/date/account",
             "source_type": "csv",
-            "source_file": "mock_statement_june_2026.csv",
-            "file_name": "mock_statement_june_2026.csv",
+            "source_file": "sample_statement_june_2026.csv",
+            "file_name": "sample_statement_june_2026.csv",
             "duplicate_transaction_id": "tx_000282",
             "transaction_date": "2026-06-12",
             "memo": "Utilities",
@@ -1306,12 +1412,12 @@ def statement_preview() -> dict:
         "importable": 1,
         "duplicates": 1,
         "unsupported_files": 0,
-        "saved_files": ["mock_statement_june_2026.csv"],
+        "saved_files": ["sample_statement_june_2026.csv"],
     }
 
 
-class DemoHandler(BaseHTTPRequestHandler):
-    server_version = "LedgerDemo/1.0"
+class LedgerPublicHandler(BaseHTTPRequestHandler):
+    server_version = "LedgerPublic/1.0"
 
     def log_message(self, fmt: str, *args) -> None:
         sys.stderr.write("%s - - [%s] %s\n" % (self.address_string(), self.log_date_time_string(), fmt % args))
@@ -1324,7 +1430,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         params = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         try:
             if parsed.path == "/api/health":
-                return self.send_json({"ok": True, "mode": "mock", "workbook": str(WORKBOOK_PATH.name)})
+                return self.send_json({"ok": True, "mode": "local", "workbook": str(WORKBOOK_PATH.name)})
             if parsed.path == "/api/overview":
                 return self.send_json(overview_payload(params))
             if parsed.path == "/api/accounts":
@@ -1336,11 +1442,11 @@ class DemoHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/statements/import":
                 return self.send_json(statement_preview())
             if parsed.path == "/api/refresh":
-                write_mock_workbook()
+                write_local_workbook()
                 return self.send_json({"ok": True, "refreshed": True})
             tx_id = self.path_id(parsed.path, "/api/transactions/", "/statement/file")
             if tx_id:
-                return self.send_bytes(b"Mock statement attachment for demo mode.\n", "text/plain; charset=utf-8", "mock-statement.txt")
+                return self.send_bytes(b"Local statement attachment for Ledger Public.\n", "text/plain; charset=utf-8", "sample-statement.txt")
             tx_id = self.path_id(parsed.path, "/api/transactions/", "/statement")
             if tx_id:
                 return self.send_json(transaction_statement(tx_id))
@@ -1379,7 +1485,7 @@ class DemoHandler(BaseHTTPRequestHandler):
                 row = create_row("trades_register", "trade_id", "tr", self.values_payload(), {"entry_date": TODAY.isoformat(), "trade_currency": "EUR", "position_status": "active", "ledger_status": "accountable", "review_status": "review_required"})
                 return self.send_json({"ok": True, "trade_id": row["trade_id"], "row": row}, status=201)
             if parsed.path == "/api/trades/refresh-prices":
-                return self.send_json(refresh_mock_prices())
+                return self.send_json(refresh_local_prices())
             if parsed.path in {"/api/accounts/duplicate", "/api/transactions/duplicate", "/api/trades/duplicate"}:
                 return self.send_json(self.bulk_duplicate(parsed.path), status=201)
             if parsed.path in {"/api/accounts/restore", "/api/transactions/restore", "/api/trades/restore"}:
@@ -1560,13 +1666,13 @@ def transaction_statement(transaction_id: str) -> dict:
         "ok": True,
         "transaction_id": transaction_id,
         "summary": {
-            "memo": row.get("memo", "Mock transaction"),
+            "memo": row.get("memo", "Local transaction"),
             "amount": row.get("statement_amount", "0"),
             "currency": row.get("statement_currency", "EUR"),
             "date": row.get("transaction_date", TODAY.isoformat()),
         },
-        "files": [{"file_name": "mock-statement.txt", "content_type": "text/plain", "url": f"/api/transactions/{transaction_id}/statement/file?file=mock-statement.txt"}],
-        "body": "Demo mode statement preview. Attachments are stored only in this local mock package.",
+        "files": [{"file_name": "sample-statement.txt", "content_type": "text/plain", "url": f"/api/transactions/{transaction_id}/statement/file?file=sample-statement.txt"}],
+        "body": "Ledger Public statement preview. Attachments are stored only in this local package.",
     }
 
 
@@ -1578,12 +1684,12 @@ def apply_statement_import(record_ids: list[str]) -> int:
         "transaction_id": next_id(rows, "transaction_id", "tx"),
         "transaction_date": "2026-06-08",
         "posted_date": "2026-06-08",
-        "memo": "Mock statement lunch",
-        "description": "Imported from mock statement queue",
+        "memo": "Sample statement lunch",
+        "description": "Imported from local statement queue",
         "category_id": "Food",
         "subcategory_id": "dining",
         "transaction_class": "expense",
-        "source_system": "Mock Statement Import",
+        "source_system": "Local Statement Import",
         "country_code": "AE",
         "statement_currency": "EUR",
         "statement_amount": "-36.20",
@@ -1591,18 +1697,18 @@ def apply_statement_import(record_ids: list[str]) -> int:
         "amount_eur_converted": "-36.20",
         "amount_usd_converted": "-39.10",
         "account_id": "acct_000005",
-        "merchant": "mock cafe",
+        "merchant": "sample cafe",
         "imported_transaction": "yes",
         "ledger_status": "accountable",
         "review_status": "reviewed",
-        "notes": "Imported in demo mode",
+        "notes": "Imported in Ledger Public",
     }
     rows.append(row)
     write_rows("transactions_register", rows)
     return 1
 
 
-def refresh_mock_prices() -> dict:
+def refresh_local_prices() -> dict:
     rows = read_rows("trades_register")
     updated = 0
     for row in rows:
@@ -1618,13 +1724,13 @@ def refresh_mock_prices() -> dict:
 
 
 def run_server(port: int, host: str, open_browser: bool = False) -> None:
-    ensure_mock_files()
-    server = ThreadingHTTPServer((host, port), DemoHandler)
+    ensure_local_data()
+    server = ThreadingHTTPServer((host, port), LedgerPublicHandler)
     url = f"http://{host}:{port}"
     if open_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     print(f"Ledger Public running at {url}")
-    print(f"Mock sheet workbook: {WORKBOOK_PATH}")
+    print(f"Local ledger workbook: {WORKBOOK_PATH}")
     print("Press Ctrl+C to stop the local server.")
     server.serve_forever()
 
@@ -1633,13 +1739,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Standalone Ledger Public server with local first-run sample data.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--open", action="store_true", help="Open the demo in the default browser after the server starts.")
-    parser.add_argument("--init-only", action="store_true", help="Create or refresh the mock CSV tabs and XLSX workbook, then exit.")
-    parser.add_argument("--reset-data", action="store_true", help="Reset mock CSV tabs to the bundled demo defaults.")
+    parser.add_argument("--open", action="store_true", help="Open Ledger Public in the default browser after the server starts.")
+    parser.add_argument("--init-only", action="store_true", help="Create or refresh the local CSV tabs and XLSX workbook, then exit.")
+    parser.add_argument("--reset-data", action="store_true", help="Reset local CSV tabs to the bundled sample defaults.")
     args = parser.parse_args()
-    ensure_mock_files(reset=args.reset_data)
+    ensure_local_data(reset=args.reset_data)
     if args.init_only:
-        print(f"Mock ledger sheet created at {WORKBOOK_PATH}")
+        print(f"Local ledger workbook created at {WORKBOOK_PATH}")
         return
     run_server(args.port, args.host, open_browser=args.open)
 

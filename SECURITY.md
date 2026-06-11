@@ -5,15 +5,15 @@ This repository is designed to be safe for public sharing.
 ## Included
 
 - Static UI files.
-- Local Python mock server.
+- Local Python server.
 - First-run sample data generator.
 
 ## Local Runtime Data
 
 The app creates these files on first run:
 
-- `mock_google_sheet/*.csv`
-- `mock_ledger_google_sheet.xlsx`
+- `local_ledger_data/*.csv`
+- `local_ledger_workbook.xlsx`
 
 They are ignored by Git. Treat them as the user's private local ledger, even when they started from sample rows.
 

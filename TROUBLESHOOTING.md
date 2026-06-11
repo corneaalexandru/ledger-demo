@@ -46,6 +46,6 @@ In the browser print dialog:
 - Disable browser headers and footers when possible.
 - Use the app's print icon from the page you want to export.
 
-## The Demo Shows Mock Data
+## Ledger Public Shows Sample Data
 
-That is expected. This public package is intentionally disconnected from live Google Sheets and private data.
+That is expected on first run. This public package is intentionally disconnected from live Google Sheets and private data.

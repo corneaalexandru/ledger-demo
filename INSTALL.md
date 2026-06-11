@@ -55,7 +55,7 @@ python3 server.py --open
 
 ## Stop The Server
 
-In the terminal window running the demo, press:
+In the terminal window running Ledger Public, press:
 
 ```text
 Ctrl+C
@@ -66,13 +66,13 @@ Ctrl+C
 The first run creates local CSV tabs in:
 
 ```text
-mock_google_sheet/
+local_ledger_data/
 ```
 
 It also creates:
 
 ```text
-mock_ledger_google_sheet.xlsx
+local_ledger_workbook.xlsx
 ```
 
 These files are ignored by Git. They are the user's local ledger data, not app code.
@@ -86,11 +86,11 @@ git pull
 python3 server.py --open
 ```
 
-Future pulls do not overwrite `mock_google_sheet/` or `mock_ledger_google_sheet.xlsx`.
+Future pulls do not overwrite `local_ledger_data/` or `local_ledger_workbook.xlsx`.
 
-## Reset Mock Data
+## Reset Local Data
 
-This overwrites the user's local ignored demo data with fresh sample rows:
+This overwrites the user's local ignored data with fresh sample rows:
 
 ```bash
 python3 server.py --reset-data --init-only

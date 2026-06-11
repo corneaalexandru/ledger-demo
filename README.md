@@ -46,10 +46,10 @@ The local server uses only the Python standard library.
 
 The public repository contains the app logic, backend, UI, and a first-run data generator. It does not version user ledger files.
 
-On first run, the server creates a local mock ledger:
+On first run, the server creates local ledger files:
 
-- `mock_google_sheet/*.csv`
-- `mock_ledger_google_sheet.xlsx`
+- `local_ledger_data/*.csv`
+- `local_ledger_workbook.xlsx`
 
 Those files are ignored by Git. A user can edit/import their own local data, then run `git pull` later to get the newest app logic without pulling or overwriting the sample data again.
 
@@ -58,11 +58,12 @@ The app reads and writes the CSV tabs. The workbook is regenerated from those CS
 ## Features
 
 - Accounts, transactions, trades, portfolio, planning, and settings screens.
-- Mock account/transaction/trade create, edit, duplicate, restore, and delete flows.
-- Mock statement import preview and apply flow.
-- Mock trade price refresh.
+- Local account/transaction/trade create, edit, duplicate, restore, and delete flows.
+- Local statement import preview and apply flow.
+- Local trade price refresh.
 - Print-to-PDF from relevant pages.
-- Local reset back to bundled demo data.
+- Offline FX conversion for multi-currency accounts, transactions, trades, and portfolio rows.
+- Local reset back to bundled sample data.
 
 ## Reset Local Data
 
@@ -72,11 +73,11 @@ This overwrites the local ignored data folder with fresh sample rows:
 python3 server.py --reset-data --init-only
 ```
 
-## Mock Google Sheet
+## Local Ledger Workbook
 
-Open `mock_ledger_google_sheet.xlsx` in Excel, Numbers, or upload it into Google Sheets to inspect the mock source tabs.
+Open `local_ledger_workbook.xlsx` in Excel, Numbers, or upload it into Google Sheets to inspect the local source tabs.
 
-The app itself does not read from Google Sheets in this public package; it uses the local CSV files in `mock_google_sheet/` so the demo works offline.
+The app itself does not read from Google Sheets in this public package; it uses the local CSV files in `local_ledger_data/` so Ledger Public works offline.
 
 ## Updating The App Without Touching Data
 
@@ -85,9 +86,9 @@ git pull
 python3 server.py --open
 ```
 
-`git pull` updates tracked code and documentation only. It leaves `mock_google_sheet/` and `mock_ledger_google_sheet.xlsx` alone because they are local runtime data.
+`git pull` updates tracked code and documentation only. It leaves `local_ledger_data/` and `local_ledger_workbook.xlsx` alone because they are local runtime data.
 
-Back up `mock_google_sheet/` before sharing or moving a user's ledger to another computer.
+Back up `local_ledger_data/` before sharing or moving a user's ledger to another computer.
 
 ## Documentation
 
@@ -97,4 +98,4 @@ Back up `mock_google_sheet/` before sharing or moving a user's ledger to another
 
 ## Important
 
-This is a public package. Do not commit private bank exports, real statement files, service account keys, or `.env` files into a fork. Keep personal data in the ignored `mock_google_sheet/` runtime folder or in a private repository.
+This is a public package. Do not commit private bank exports, real statement files, service account keys, or `.env` files into a fork. Keep personal data in the ignored `local_ledger_data/` runtime folder or in a private repository.
