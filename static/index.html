@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ledger</title>
+    <link rel="stylesheet" href="styles.css?v=20260610-16" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <nav class="nav-list" id="navList" aria-label="Main navigation"></nav>
+        <div class="sidebar-footer">
+          <button class="sidebar-action" id="themeToggle" type="button"></button>
+          <button class="sidebar-action" id="refreshAction" type="button"></button>
+          <button class="sidebar-action" id="privacyAction" type="button"></button>
+        </div>
+        <div
+          class="sidebar-resizer"
+          id="sidebarResizer"
+          role="separator"
+          tabindex="0"
+          aria-label="Resize sidebar"
+          aria-orientation="vertical"
+        ></div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="search-shell">
+            <label class="search">
+              <span class="search-icon" data-icon="search"></span>
+              <input id="globalSearch" type="search" placeholder="Search anything..." />
+              <kbd>Cmd K</kbd>
+            </label>
+            <div class="active-filter-chips" id="activeFilterChips" aria-label="Active table filters" hidden></div>
+          </div>
+          <div class="topbar-actions">
+            <div class="topbar-print-control" id="pagePrintControl" aria-label="Print current page"></div>
+            <div class="period-control" id="periodControl" aria-label="Reporting period"></div>
+          </div>
+        </header>
+
+        <section class="page-stage" id="pageStage" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <script type="module" src="app.js?v=20260610-08"></script>
+  </body>
+</html>

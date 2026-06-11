@@ -1,0 +1,37 @@
+# Security Notes
+
+This repository is designed to be safe for public sharing.
+
+## Included
+
+- Static UI files.
+- Local Python mock server.
+- First-run sample data generator.
+
+## Local Runtime Data
+
+The app creates these files on first run:
+
+- `mock_google_sheet/*.csv`
+- `mock_ledger_google_sheet.xlsx`
+
+They are ignored by Git. Treat them as the user's private local ledger, even when they started from sample rows.
+
+## Not Included
+
+- `.env` files.
+- Google service-account JSON files.
+- OAuth tokens.
+- Real statement imports.
+- Real bank exports.
+- Private ledger data.
+
+## Before Publishing Changes
+
+Run this from the repository root:
+
+```bash
+grep -RInE "PRIVATE KEY|client_secret|refresh_token|service_account|\\.env" .
+```
+
+Do not commit anything private. Keep personal ledger rows in the ignored local runtime files, or in a separate private repository.

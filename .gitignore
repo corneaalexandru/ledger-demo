@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# Runtime ledger data. Generated on first run and intentionally not versioned,
+# so users can pull app updates without overwriting their local ledger.
+mock_google_sheet/
+mock_ledger_google_sheet.xlsx
