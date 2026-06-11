@@ -20,7 +20,7 @@ python3 server.py --port 8770 --open
 
 ## macOS Blocks The Launcher
 
-Right-click `start_demo.command`, choose `Open`, then confirm.
+Right-click `start_ledger_public.command`, choose `Open`, then confirm.
 
 ## Browser Does Not Open
 

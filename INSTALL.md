@@ -14,19 +14,20 @@
 Double-click:
 
 ```text
-start_demo.command
+start_ledger_public.command
 ```
 
 If macOS blocks it:
 
-1. Right-click `start_demo.command`.
+1. Right-click `start_ledger_public.command`.
 2. Choose `Open`.
 3. Confirm.
 
 ### Option B: Terminal
 
 ```bash
-cd ledger-demo
+git clone https://github.com/corneaalexandru/ledger-public.git
+cd ledger-public
 python3 server.py --open
 ```
 
@@ -35,20 +36,20 @@ python3 server.py --open
 Double-click:
 
 ```text
-start_demo.bat
+start_ledger_public.bat
 ```
 
 Or run:
 
 ```bat
-cd ledger-demo
+cd ledger-public
 py server.py --open
 ```
 
 ## Linux
 
 ```bash
-cd ledger-demo
+cd ledger-public
 python3 server.py --open
 ```
 

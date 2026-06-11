@@ -1,8 +1,8 @@
-# Ledger Demo
+# Ledger Public
 
-A standalone, mock-data version of the Ledger finance dashboard.
+A standalone public version of the Ledger finance dashboard.
 
-This public demo runs entirely on the user's computer. It does not connect to the live Ledger Google Sheet, does not use service-account credentials, and does not include private financial data.
+Ledger Public runs entirely on the user's computer. It does not connect to the live Ledger Google Sheet, does not use service-account credentials, and does not include private financial data.
 
 ## Quick Start
 
@@ -10,16 +10,16 @@ This public demo runs entirely on the user's computer. It does not connect to th
 
 1. Download the repository ZIP from GitHub.
 2. Unzip it.
-3. Double-click `start_demo.command`.
+3. Double-click `start_ledger_public.command`.
 4. Open `http://127.0.0.1:8765` if the browser does not open automatically.
 
-If macOS blocks the launcher, right-click `start_demo.command`, choose `Open`, then confirm.
+If macOS blocks the launcher, right-click `start_ledger_public.command`, choose `Open`, then confirm.
 
 ### Windows
 
 1. Download the repository ZIP from GitHub.
 2. Unzip it.
-3. Double-click `start_demo.bat`.
+3. Double-click `start_ledger_public.bat`.
 4. Open `http://127.0.0.1:8765` if the browser does not open automatically.
 
 ### Terminal
@@ -40,7 +40,7 @@ python3 server.py --port 8770 --open
 - No `pip install` step is required.
 - No Google account or API credentials are required.
 
-The demo server uses only the Python standard library.
+The local server uses only the Python standard library.
 
 ## Local Data Model
 
@@ -55,7 +55,7 @@ Those files are ignored by Git. A user can edit/import their own local data, the
 
 The app reads and writes the CSV tabs. The workbook is regenerated from those CSV files whenever the local data changes.
 
-## Demo Features
+## Features
 
 - Accounts, transactions, trades, portfolio, planning, and settings screens.
 - Mock account/transaction/trade create, edit, duplicate, restore, and delete flows.
@@ -64,7 +64,7 @@ The app reads and writes the CSV tabs. The workbook is regenerated from those CS
 - Print-to-PDF from relevant pages.
 - Local reset back to bundled demo data.
 
-## Reset The Demo
+## Reset Local Data
 
 This overwrites the local ignored data folder with fresh sample rows:
 
@@ -93,8 +93,8 @@ Back up `mock_google_sheet/` before sharing or moving a user's ledger to another
 
 - [INSTALL.md](INSTALL.md) - install and run instructions.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - common fixes.
-- [SECURITY.md](SECURITY.md) - what is and is not included in this public demo.
+- [SECURITY.md](SECURITY.md) - what is and is not included in Ledger Public.
 
 ## Important
 
-This is a demo package. Do not commit private bank exports, real statement files, service account keys, or `.env` files into a fork. Keep personal data in the ignored `mock_google_sheet/` runtime folder or in a private repository.
+This is a public package. Do not commit private bank exports, real statement files, service account keys, or `.env` files into a fork. Keep personal data in the ignored `mock_google_sheet/` runtime folder or in a private repository.

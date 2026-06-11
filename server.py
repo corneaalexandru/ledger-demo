@@ -1623,14 +1623,14 @@ def run_server(port: int, host: str, open_browser: bool = False) -> None:
     url = f"http://{host}:{port}"
     if open_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
-    print(f"Ledger demo running at {url}")
+    print(f"Ledger Public running at {url}")
     print(f"Mock sheet workbook: {WORKBOOK_PATH}")
-    print("Press Ctrl+C to stop the demo server.")
+    print("Press Ctrl+C to stop the local server.")
     server.serve_forever()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Standalone Ledger demo server with mock data.")
+    parser = argparse.ArgumentParser(description="Standalone Ledger Public server with local first-run sample data.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--open", action="store_true", help="Open the demo in the default browser after the server starts.")
