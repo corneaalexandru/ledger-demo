@@ -21,6 +21,7 @@ then
 fi
 
 "$PYTHON_BIN" scripts/setup_google.py
+"$PYTHON_BIN" scripts/setup_auth.py --app-name "Ledger Public"
 
 echo "Starting Ledger Public at http://${HOST}:${PORT}"
 exec "$PYTHON_BIN" server.py --store google --host "$HOST" --port "$PORT" --open

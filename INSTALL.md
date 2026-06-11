@@ -14,7 +14,7 @@ If macOS blocks it:
 2. Choose `Open`.
 3. Confirm.
 
-The launcher updates the app, installs missing Google requirements, runs setup once, then starts Ledger.
+The launcher updates the app, installs missing Google requirements, runs Google setup once, creates a local browser username/password once, then starts Ledger.
 
 ## Terminal
 
@@ -23,6 +23,7 @@ git clone https://github.com/corneaalexandru/ledger-public.git
 cd ledger-public
 python3 -m pip install -r requirements-google.txt
 python3 scripts/setup_google.py
+python3 scripts/setup_auth.py --app-name "Ledger Public"
 python3 server.py --store google --open
 ```
 
@@ -40,6 +41,7 @@ The wizard writes:
 ```text
 .env
 .ledger_public_setup/google_configured
+.ledger_auth.json
 ```
 
 Those files are ignored by Git and should stay private.

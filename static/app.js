@@ -12933,7 +12933,7 @@ function transactionMetrics(summary = {}, activeClass = "", data = {}) {
     );
     return [
       transactionMetric("Review", formatNumber(summary.filtered ?? 0), reviewBreakdownNote(summary)),
-      transactionMetric("Review Total", formatCurrency(reviewAmount, "EUR"), "base amount under review"),
+      transactionMetric("Review Total", formatCurrency(reviewAmount, "EUR"), "project amount under review"),
       transactionsMetric,
     ].join("");
   }
@@ -13631,7 +13631,7 @@ function transactionTable(rows, data) {
             <th>${sortHeader("Account", "account")}</th>
             <th>Country</th>
             <th>Currency</th>
-            <th class="align-right">${sortHeader("Base Amount (EUR)", "amount")}</th>
+            <th class="align-right">${sortHeader("Project Amount", "amount")}</th>
             <th class="align-right">${sortHeader("Statement Amount", "native_amount")}</th>
           </tr>
         </thead>

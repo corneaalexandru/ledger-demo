@@ -18,6 +18,7 @@ The launcher will:
 - Install Google Sheets requirements when missing.
 - Ask for the service-account JSON and Google Sheet ID only when setup is not complete.
 - Ask for the default Project Currency used across summaries, charts, reports, and printouts.
+- Create a local browser username/password on first run.
 - Start Ledger Public at `http://127.0.0.1:8765`.
 
 ## Starter Database
@@ -52,6 +53,10 @@ LEDGER_PORT=8770 ./start_ledger_public.command
 The macOS launcher runs `git pull --ff-only` automatically when the app folder is a git clone. If the repository was downloaded as a ZIP, download a fresh ZIP to update.
 
 User data stays in the user's Google Sheet. Pulling app updates does not overwrite the Sheet or the local `.env`/credentials files.
+
+## Local Browser Password
+
+`start_ledger_public.command` creates `.ledger_auth.json` once and stores only a password hash. The file is ignored by Git and stays on the user's computer. To reset the browser password, delete `.ledger_auth.json` and run the launcher again.
 
 ## Documentation
 
