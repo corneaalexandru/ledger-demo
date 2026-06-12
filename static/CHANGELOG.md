@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Kept transaction date, month, and year quick filters active when switching to Insights or Targets.
 - Fixed monthly target drilldowns so month rows stay in Targets and keep the top period selector in sync.
 - Flattened Settings into one page and standardized Settings/About into one-card-per-item insight grids.
 - Added grey planned and black achieved progress bars to monthly target category rows.

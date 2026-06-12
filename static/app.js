@@ -1852,7 +1852,7 @@ function bindEvents() {
       state.transactionView = "insights";
       state.query = "";
       if (elements.search) elements.search.value = "";
-      state.transactionFilters = emptyTransactionFilters();
+      state.transactionFilters = emptyTransactionFilters(filtersForPeriod());
       state.transactionOffset = 0;
       state.selectedTransactions.clear();
       state.selectedTransactionId = "";
@@ -1862,11 +1862,7 @@ function bindEvents() {
       state.selectedYearlyTargetYear = "";
       state.targetDetailEditing = false;
       resetStatementPanel();
-      if (!transactionPayloadHasScope(state.transactions, "insights")) {
-        loadTransactions();
-      } else {
-        render();
-      }
+      loadTransactions();
     }
     if (action.dataset.action === "transaction-monthly-targets-tab") {
       state.transactionView = "monthlyTargets";
@@ -2570,16 +2566,19 @@ function applyStructuredQuickFilter(field, value) {
     if (filterField === "posted_date" || filterField === "transaction_date") {
       state.transactionFilters.date_from = filterValue;
       state.transactionFilters.date_to = filterValue;
+      syncPeriodFromTransactionQuickFilter("date", filterValue);
     } else if (filterField === "transaction_month") {
       const range = transactionDateRangeFromQuickFilter(filterValue, "month");
       if (!range) return false;
       state.transactionFilters.date_from = range.dateFrom;
       state.transactionFilters.date_to = range.dateTo;
+      syncPeriodFromTransactionQuickFilter("month", filterValue);
     } else if (filterField === "transaction_year") {
       const range = transactionDateRangeFromQuickFilter(filterValue, "year");
       if (!range) return false;
       state.transactionFilters.date_from = range.dateFrom;
       state.transactionFilters.date_to = range.dateTo;
+      syncPeriodFromTransactionQuickFilter("year", filterValue);
     } else if (Object.prototype.hasOwnProperty.call(state.transactionFilters, filterField)) {
       state.transactionFilters[filterField] = nextValue;
     } else {
@@ -2639,6 +2638,38 @@ function transactionQuickFilterDateField(field) {
   if (field === "transaction_month") return "month";
   if (field === "transaction_year") return "year";
   return "";
+}
+
+function syncPeriodFromTransactionQuickFilter(scope = "", value = "") {
+  const raw = String(value || "").trim();
+  if (scope === "date" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    state.period.mode = "day";
+    state.period.day = raw;
+    state.period.dayMonth = raw.slice(0, 7);
+    state.period.dayPickerMonth = "";
+    state.period.month = state.period.dayMonth;
+    state.period.year = Number(raw.slice(0, 4)) || state.period.year;
+    state.period.calendarYear = state.period.year;
+    return true;
+  }
+  if (scope === "month" && /^\d{4}-\d{2}$/.test(raw)) {
+    state.period.mode = "month";
+    state.period.dayPickerMonth = "";
+    state.period.dayMonth = raw;
+    state.period.month = raw;
+    state.period.year = Number(raw.slice(0, 4)) || state.period.year;
+    state.period.calendarYear = state.period.year;
+    return true;
+  }
+  if (scope === "year" && /^\d{4}$/.test(raw)) {
+    state.period.mode = "year";
+    state.period.dayPickerMonth = "";
+    state.period.year = Number(raw) || state.period.year;
+    state.period.calendarYear = state.period.year;
+    state.period.yearRangeStart = yearRangeStartFor(state.period.year);
+    return true;
+  }
+  return false;
 }
 
 function transactionDateRangeFromQuickFilter(value, scope) {
