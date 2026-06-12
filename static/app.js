@@ -9982,7 +9982,7 @@ function settingsThresholdCards() {
           <em>${safe(suffix)}</em>
         </div>
       `,
-      meta: suffix,
+      meta: "",
       note,
       icon: "target",
       className: "settings-input-card",

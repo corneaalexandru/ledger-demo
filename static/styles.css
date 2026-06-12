@@ -1949,10 +1949,10 @@ html[data-theme="light"] .skeleton-table span::after {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 6px;
+  gap: 0 5px;
   height: auto;
   min-height: 0;
-  margin: 0 0 10px;
+  margin: 0 0 7px;
   padding: 0 0 0 20px;
   border-left: 0;
   border-bottom: 0;
@@ -2030,8 +2030,29 @@ html[data-theme="light"] .skeleton-table span::after {
 .overview-insight-grid.settings-line-grid .settings-card-actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 0 6px;
+  gap: 6px;
+  margin: 0 0 0 5px;
+  vertical-align: baseline;
+}
+
+.overview-insight-grid.settings-line-grid .small-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.overview-insight-grid.settings-line-grid .small-button [data-icon],
+.overview-insight-grid.settings-line-grid .small-button [data-icon] svg {
+  width: 14px;
+  height: 14px;
 }
 
 .overview-insight-grid.settings-line-grid .settings-card-value input,
@@ -2039,15 +2060,47 @@ html[data-theme="light"] .skeleton-table span::after {
 .overview-insight-grid.settings-line-grid .settings-input-card input,
 .overview-insight-grid.settings-line-grid .settings-input-card select {
   width: auto;
-  min-width: min(260px, 100%);
-  min-height: 30px;
-  padding: 4px 8px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.2;
+  vertical-align: baseline;
+}
+
+.overview-insight-grid.settings-line-grid .settings-card-value select,
+.overview-insight-grid.settings-line-grid .settings-input-card select {
+  width: auto;
+  min-width: 168px;
+  max-width: 220px;
+}
+
+.overview-insight-grid.settings-line-grid .settings-card-value > input,
+.overview-insight-grid.settings-line-grid .settings-input-card .settings-card-value > input {
+  width: clamp(150px, 18vw, 240px);
 }
 
 .overview-insight-grid.settings-line-grid .target-detail-input {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.overview-insight-grid.settings-line-grid .target-detail-input input {
+  width: 64px;
+  min-width: 64px;
+  text-align: right;
+}
+
+.overview-insight-grid.settings-line-grid .target-detail-input em {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.2;
 }
 
 .overview-strategic-grid .metric-card,

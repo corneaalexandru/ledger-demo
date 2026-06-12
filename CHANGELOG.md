@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Tightened Settings inline inputs and action buttons so fields match text scale and threshold units no longer duplicate.
 - Removed the remaining profile username/password fields and password hashing so Ledger opens without a login/authentication module.
 - Added compact target progress bars beside year and month labels in target summary tables.
 - Matched Settings to the plain About bullet-list style.
