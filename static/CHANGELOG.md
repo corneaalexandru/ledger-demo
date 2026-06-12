@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Removed the duplicate structural overspending review signal from Overview while keeping the existing Risk metric.
 - Moved structural overspending from the Overview headline row into Risk bullets and promoted Liquid Capital in its place.
 - Reduced Overview to five headline insight cards and moved supporting metrics into Settings-style bullet sections.
 - Kept active transaction filter chips such as category filters when changing the selected day, month, or year.

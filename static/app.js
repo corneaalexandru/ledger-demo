@@ -10566,7 +10566,6 @@ function overviewSystemInsights(accounts = {}, transactions = {}, trades = {}, p
   const summary = overviewPortfolioSummary(portfolio);
   const monthlyDeployment = numericValue(summary.monthly_contribution_eur);
   const monthlySurplus = averageIncome - averageSpend;
-  const structuralOverspending = numericValue(transactions.capital_targets?.structural_overspending_eur);
 
   if (savingsBaseline && Math.abs(savingsBaseline.delta) >= 1) {
     insights.push(overviewSignal(
@@ -10625,16 +10624,6 @@ function overviewSystemInsights(accounts = {}, transactions = {}, trades = {}, p
         deploymentGap >= 0 ? "" : "negative",
       ));
     }
-  }
-
-  if (structuralOverspending > thresholds.expenseCeilingWarningEur) {
-    insights.push(overviewSignal(
-      "Structural overspending requires review",
-      `${formatWholeCurrency(structuralOverspending, "EUR")} above planning ceilings · leakage component`,
-      "trendDown",
-      "negative",
-      5,
-    ));
   }
 
   return overviewSignalFallback(sortOverviewSignals(insights), "Capital system is stable", "Rule checks did not detect a material planning variance.").slice(0, 5);
