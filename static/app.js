@@ -9855,27 +9855,31 @@ function settingsRowsToMetricCards(rows, icon = "settings") {
   }));
 }
 
-function settingsProjectCards({ accounts = {}, netWorth = 0, projectCurrency = "EUR", stats = [], transactions = {} } = {}) {
-  const sourceRows = stats.reduce((total, item) => total + numericValue(item.rows), 0);
+function settingsProjectCards({ accounts = {}, netWorth = 0, projectCurrency = "EUR" } = {}) {
   return [
     settingsMetricCard({ label: "Project Currency", valueHtml: settingsProjectCurrencyControl(projectCurrencyCode()), meta: "Display baseline", note: "Used across summaries, charts, reports, and printouts. Native source rows stay in their original currencies.", icon: "currency", className: "settings-input-card" }),
     settingsMetricCard({ label: "Current Net Worth", value: formatWholeCurrency(netWorth, projectCurrency, { project: false }), meta: "selected project currency", note: "Current capital position from source truth accounts.", icon: "wallet" }),
     settingsMetricCard({ label: "Currency Coverage", value: supportedProjectCurrencies().join(" / "), meta: "conversion table", note: "Currencies supported by the shared conversion table.", icon: "currency" }),
-    settingsMetricCard({ label: "Source Rows", value: formatNumber(sourceRows), meta: "live registers", note: "Rows currently loaded from source truth registers.", icon: "database" }),
-    settingsMetricCard({ label: "Open Review", value: formatNumber(transactions.review_open ?? transactions.review_required ?? 0), meta: "transactions", note: "Transactions still requiring manual review.", icon: "target" }),
   ];
 }
 
-function settingsSourceTruthCards({ stats = [] } = {}) {
-  const cards = stats.map((row, index) => settingsMetricCard({
-    label: settingsSourceRegisterLabel(row, index),
-    value: `${formatNumber(row.rows)} rows`,
-    meta: `${formatNumber(row.columns)} cols · ${row.status || "Ready"}`,
-    note: row.purpose || "Source truth register loaded from the active data store.",
-    icon: "database",
-  }));
-  return cards.length ? cards : [
-    settingsMetricCard({ label: "Source Truth", value: "No registers", meta: "not available", note: "No source truth registers are available.", icon: "database" }),
+function settingsSourceTruthCards({ stats = [], transactions = {} } = {}) {
+  const sourceRows = stats.reduce((total, item) => total + numericValue(item.rows), 0);
+  const registerCards = stats.length
+    ? stats.map((row, index) => settingsMetricCard({
+      label: settingsSourceRegisterLabel(row, index),
+      value: `${formatNumber(row.rows)} rows`,
+      meta: `${formatNumber(row.columns)} cols · ${row.status || "Ready"}`,
+      note: row.purpose || "Source truth register loaded from the active data store.",
+      icon: "database",
+    }))
+    : [settingsMetricCard({ label: "Source Truth", value: "No registers", meta: "not available", note: "No source truth registers are available.", icon: "database" })];
+  return [
+    settingsMetricCard({ label: "Source Rows", value: formatNumber(sourceRows), meta: "live registers", note: "Rows currently loaded from source truth registers.", icon: "database" }),
+    ...registerCards,
+    settingsMetricCard({ label: "Open Review", value: formatNumber(transactions.review_open ?? transactions.review_required ?? 0), meta: "transactions", note: "Transactions still requiring manual review.", icon: "target" }),
+    settingsDataHealthCard(),
+    settingsMetricCard({ label: "Imports", value: "Local attachments", meta: "statements", note: "Statements are linked to transactions and preserved in the project.", icon: "paperclip" }),
   ];
 }
 
@@ -9888,6 +9892,27 @@ function settingsSyncCards() {
   const cache = state.cacheStatus || {};
   const snapshot = cache.snapshot || {};
   const memorySheets = Array.isArray(cache.memory) ? cache.memory.length : 0;
+  const snapshotLabel = snapshot.mode === "google_sheets"
+    ? "Google Sheets"
+    : snapshot.path
+      ? "SQLite ready"
+      : "Runtime store";
+  const snapshotMeta = snapshot.mode === "google_sheets"
+    ? "google sheet cache"
+    : snapshot.path
+      ? "local cache"
+      : "runtime store";
+  return [
+    settingsMetricCard({ label: "Refresh Policy", value: "Manual refresh", meta: "sidebar refresh", note: "Use refresh when Google Sheets changes.", icon: "refresh" }),
+    settingsMetricCard({ label: "Memory Cache", value: `${formatNumber(memorySheets)} sheets`, meta: `TTL ${formatNumber(cache.ttl_seconds || 0)} seconds`, note: "Live in-memory cache for loaded sheets.", icon: "database" }),
+    settingsMetricCard({ label: "Snapshot Cache", value: snapshotLabel, meta: snapshotMeta, note: "Startup snapshot store for faster reloads.", icon: "database" }),
+    settingsMetricCard({ label: "Refresh Now", value: "Source truth", meta: "manual action", note: "Refresh all loaded ledger data.", icon: "refresh", actionsHtml: settingsRefreshButton() }),
+    settingsMetricCard({ label: "Portfolio Instruments", value: "Manual values refresh", meta: "prices", note: "Updates active instrument prices and brokerage account investment totals.", icon: "trendUp" }),
+    settingsMetricCard({ label: "Refresh Portfolio Values", value: refreshingPricesLabel(), meta: "manual action", note: "Refresh active instrument values.", icon: "trendUp", actionsHtml: settingsPortfolioRefreshButton() }),
+  ];
+}
+
+function settingsDataHealthCard() {
   const health = state.dataHealth || {};
   const healthValue = state.loading.settingsDiagnostics
     ? "Checking"
@@ -9895,24 +9920,14 @@ function settingsSyncCards() {
   const healthNote = health.ok === false
     ? Object.entries(health.counts || {}).map(([key, value]) => `${labelize(key)} ${formatNumber(value)}`).slice(0, 3).join(" · ")
     : "No active data-health issues reported.";
-  const snapshotLabel = snapshot.mode === "google_sheets"
-    ? "Google Sheets"
-    : snapshot.path
-      ? "SQLite ready"
-      : "Runtime store";
-  const snapshotNote = snapshot.spreadsheet_id
-    ? `Sheet ${snapshot.spreadsheet_id}`
-    : snapshot.path || "Active store is configured at startup.";
-  return [
-    settingsMetricCard({ label: "Refresh Policy", value: "Manual refresh", meta: "sidebar refresh", note: "Use refresh when Google Sheets changes.", icon: "refresh" }),
-    settingsMetricCard({ label: "Memory Cache", value: `${formatNumber(memorySheets)} sheets`, meta: `TTL ${formatNumber(cache.ttl_seconds || 0)} seconds`, note: "Live in-memory cache for loaded sheets.", icon: "database" }),
-    settingsMetricCard({ label: "Snapshot Cache", value: snapshotLabel, meta: snapshotNote, note: "Startup snapshot store for faster reloads.", icon: "database" }),
-    settingsMetricCard({ label: "Data Health", value: healthValue, meta: health.ok === false ? "needs review" : "ready", note: healthNote, icon: "check", tone: health.ok === false ? "negative" : "" }),
-    settingsMetricCard({ label: "Imports", value: "Local attachments", meta: "statements", note: "Statements are linked to transactions and preserved in the project.", icon: "paperclip" }),
-    settingsMetricCard({ label: "Portfolio Instruments", value: "Manual values refresh", meta: "prices", note: "Updates active instrument prices and brokerage account investment totals.", icon: "trendUp" }),
-    settingsMetricCard({ label: "Refresh Now", value: "Source truth", meta: "manual action", note: "Refresh all loaded ledger data.", icon: "refresh", actionsHtml: settingsRefreshButton() }),
-    settingsMetricCard({ label: "Refresh Portfolio Values", value: refreshingPricesLabel(), meta: "manual action", note: "Refresh active instrument values.", icon: "trendUp", actionsHtml: settingsPortfolioRefreshButton() }),
-  ];
+  return settingsMetricCard({
+    label: "Data Health",
+    value: healthValue,
+    meta: health.ok === false ? "needs review" : "ready",
+    note: healthNote,
+    icon: "check",
+    tone: health.ok === false ? "negative" : "",
+  });
 }
 
 function refreshingPricesLabel() {
