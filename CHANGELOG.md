@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Matched Settings to the plain About bullet-list style.
 - Standardized Settings and About into simpler line-by-line document rows.
 - Removed the redundant label, filename, and release-history text above the About changelog content.
 - Removed the duplicate divider line below detail drawer headers.
