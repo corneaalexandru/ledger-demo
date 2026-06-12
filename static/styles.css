@@ -962,6 +962,16 @@ kbd {
   margin-bottom: 22px;
 }
 
+.settings-page-divider {
+  position: sticky;
+  top: var(--sticky-tabs-offset);
+  z-index: 13;
+  height: 1px;
+  margin: 0 calc(-1 * var(--workspace-x)) 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
 .settings-markdown {
   display: grid;
   gap: 12px;

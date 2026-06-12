@@ -2,6 +2,10 @@
 
 Ledger Public follows the private Ledger development stream. Public releases contain the same shared UI/core behavior where it is safe to publish, without private data or credentials.
 
+## 2026-06-13
+
+- Added a Settings header/content divider so the page matches the About page boundary treatment.
+
 ## 2026-06-12
 
 - Added account country support across the Accounts Google Sheet schema, API filters, table, details, and edit form.

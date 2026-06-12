@@ -9793,6 +9793,7 @@ function renderSettings() {
     <section class="transactions-head settings-head">
       <h1>Settings</h1>
     </section>
+    ${settingsPageDivider()}
     <section class="settings-page">
       ${settingsDashboard({ accounts, connections, netWorth, projectCurrency, stats, transactions })}
     </section>
@@ -9809,6 +9810,10 @@ function settingsDashboard(context = {}) {
     ...settingsThresholdCards(),
     ...settingsPreferencesCards(),
   ], "settings-all-grid settings-line-grid document-line-list");
+}
+
+function settingsPageDivider() {
+  return `<div class="settings-page-divider" aria-hidden="true"></div>`;
 }
 
 function renderAbout() {
