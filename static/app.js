@@ -3448,7 +3448,10 @@ function overviewInsightsDashboard(insightCards = [], accounts = {}, transaction
 
 function overviewHeadlineInsightCards(cards = []) {
   const selected = [];
-  const available = cards.filter((card) => overviewInsightCardFamily(card) !== "net-worth");
+  const available = cards.filter((card) => {
+    const family = overviewInsightCardFamily(card);
+    return family !== "net-worth" && family !== "structural-overspending";
+  });
   const addCard = (card) => {
     if (!card) return;
     const key = overviewInsightCardKey(card);
@@ -3459,7 +3462,7 @@ function overviewHeadlineInsightCards(cards = []) {
   addCard(findById("strategic-monthly-surplus"));
   addCard(findById("strategic-savings-rate"));
   addCard(findById("strategic-cash-runway"));
-  addCard(available.find((card) => overviewInsightCardFamily(card) === "structural-overspending"));
+  addCard(findById("liquid-capital") || available.find((card) => overviewInsightCardSearchText(card).includes("liquid capital")));
   addCard(
     available
       .filter((card) => !selected.some((item) => overviewInsightCardKey(item) === overviewInsightCardKey(card)))
@@ -3540,9 +3543,10 @@ function overviewInsightCardKey(card = {}) {
 }
 
 function overviewInsightCardFamily(card = {}) {
-  const text = overviewInsightCardSearchText(card);
-  if (text.includes("net worth")) return "net-worth";
-  if (text.includes("structural overspending")) return "structural-overspending";
+  const id = String(card.id || "").toLowerCase();
+  const label = String(card.label || "").toLowerCase();
+  if (id.includes("net-worth") || label === "net worth") return "net-worth";
+  if (id.includes("structural-overspending") || label.includes("structural overspending")) return "structural-overspending";
   return "";
 }
 
