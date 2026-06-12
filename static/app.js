@@ -11971,14 +11971,15 @@ function targetProgressBar({ target = 0, actual = 0, actualAvailable = true, cla
   const hasTarget = targetValue > 0;
   const cappedActual = targetValue > 0 ? Math.min(actualValue, targetValue) : 0;
   const overAmount = actualAvailable ? Math.max(actualValue - targetValue, 0) : 0;
-  const plannedPct = hasTarget ? 100 : 0;
-  const achievedPct = hasTarget ? clampValue(percentOf(cappedActual, targetValue), 0, 100) : 0;
+  const scaleValue = Math.max(targetValue, actualValue);
+  const plannedPct = scaleValue > 0 ? clampValue(percentOf(targetValue, scaleValue), 0, 100) : 0;
+  const achievedPct = scaleValue > 0 ? clampValue(percentOf(cappedActual, scaleValue), 0, 100) : 0;
   const overPct = hasTarget
-    ? clampValue(percentOf(overAmount, targetValue), 0, 100)
+    ? clampValue(percentOf(overAmount, scaleValue), 0, 100)
     : actualValue > 0
       ? 100
       : 0;
-  const overLeftPct = hasTarget ? 100 : 0;
+  const overLeftPct = hasTarget ? plannedPct : 0;
   const status = !actualAvailable || !actualValue
     ? "empty"
     : actualValue > targetValue
