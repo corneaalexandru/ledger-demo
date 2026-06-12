@@ -9702,26 +9702,23 @@ function settingsCopyrightPanel() {
 function settingsChangelogPanel() {
   if (state.loading.aboutChangelog && !state.aboutChangelog) {
     return settingsInsightGrid([
-      settingsMetricCard({ label: "Changelog", value: "Loading", meta: "CHANGELOG.md", note: "Loading release history.", icon: "fileText" }),
+      settingsMetricCard({ label: "Changelog", value: "Loading", meta: "", note: "Loading updates.", icon: "fileText" }),
     ]);
   }
   if (state.error.aboutChangelog && !state.aboutChangelog) {
     return settingsInsightGrid([
-      settingsMetricCard({ label: "Changelog", value: "Unable to load", meta: state.error.aboutChangelog, note: "Release history could not be loaded.", icon: "fileText", tone: "negative" }),
+      settingsMetricCard({ label: "Changelog", value: "Unable to load", meta: state.error.aboutChangelog, note: "Updates could not be loaded.", icon: "fileText", tone: "negative" }),
     ]);
   }
   const changelog = state.aboutChangelog || {};
   const body = changelog.body || "# Changelog\n\nNo changelog entries are available.";
   return settingsInsightGrid([
-    settingsMetricCard({
-      label: "Changelog",
-      value: changelog.source || "CHANGELOG.md",
-      meta: "Release history",
-      noteHtml: markdownDocument(body),
-      icon: "fileText",
-      className: "settings-document-card",
-    }),
+    settingsDocumentCard(markdownDocument(changelogBodyWithoutTitle(body))),
   ]);
+}
+
+function changelogBodyWithoutTitle(markdown = "") {
+  return String(markdown || "").replace(/^\s*#\s+Changelog\s*(?:\r?\n)+/i, "");
 }
 
 function settingsProfileForm() {
@@ -9808,6 +9805,14 @@ function settingsMetricCard({ label, value = "", meta = "", note = "", icon = ""
       ${metaHtml || (meta ? `<small>${safe(meta)}</small>` : "")}
       ${noteHtml || (note ? `<em>${safe(note)}</em>` : "")}
       ${actionsHtml ? `<div class="settings-card-actions">${actionsHtml}</div>` : ""}
+    </article>
+  `;
+}
+
+function settingsDocumentCard(bodyHtml = "") {
+  return `
+    <article class="metric-card settings-metric-card settings-document-card settings-document-body-card">
+      ${bodyHtml}
     </article>
   `;
 }

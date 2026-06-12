@@ -910,7 +910,10 @@ kbd {
 
 .settings-document-card .settings-markdown {
   max-width: none;
-  margin-top: 14px;
+}
+
+.settings-document-body-card .settings-markdown {
+  margin-top: 0;
 }
 
 .settings-about-tabs {

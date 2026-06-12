@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Removed the redundant label, filename, and release-history text above the About changelog content.
 - Removed the duplicate divider line below detail drawer headers.
 - Extended monthly target progress bars with a red proportional over-target segment.
 - Kept transaction date, month, and year quick filters active when switching to Insights or Targets.
