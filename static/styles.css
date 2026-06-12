@@ -916,6 +916,41 @@ kbd {
   margin-top: 0;
 }
 
+.settings-document-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.settings-document-list li {
+  padding-left: 2px;
+}
+
+.settings-document-list li::marker {
+  color: var(--muted);
+}
+
+.settings-document-label {
+  color: var(--strong);
+  font-weight: 700;
+}
+
+.settings-document-value {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.settings-document-label::after {
+  content: ":";
+}
+
+.settings-document-note::before {
+  content: " — ";
+}
+
 .settings-about-tabs {
   margin-bottom: 22px;
 }
@@ -1901,6 +1936,83 @@ html[data-theme="light"] .skeleton-table span::after {
 .overview-insight-grid .metric-card.is-compact > em {
   font-size: 12px;
   line-height: 1.32;
+}
+
+.overview-insight-grid.settings-line-grid {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card {
+  display: grid;
+  grid-template-columns: 14px minmax(160px, 0.7fr) minmax(220px, 0.85fr) minmax(280px, 1.4fr);
+  column-gap: 18px;
+  row-gap: 4px;
+  align-items: start;
+  min-height: 0;
+  padding: 12px 0;
+  border-left: 0;
+  border-bottom: 1px solid var(--line);
+  overflow: visible;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card::before {
+  content: "•";
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.05;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card-head {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 0;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card-label {
+  color: var(--strong);
+  font-size: 14px;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card strong,
+.overview-insight-grid.settings-line-grid .settings-card-value {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  margin: 0;
+  color: var(--strong);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card small,
+.overview-insight-grid.settings-line-grid .metric-card > em {
+  grid-column: 4;
+  display: block;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: initial;
+  -webkit-line-clamp: unset;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card small {
+  grid-row: 1;
+}
+
+.overview-insight-grid.settings-line-grid .metric-card > em {
+  grid-row: 2;
+  margin-top: 0;
+  font-style: normal;
+}
+
+.overview-insight-grid.settings-line-grid .settings-card-actions {
+  grid-column: 3 / 5;
+  grid-row: 3;
+  margin-top: 6px;
 }
 
 .overview-strategic-grid .metric-card,
@@ -6264,6 +6376,25 @@ table.portfolio-table td:nth-child(7) {
   .settings-metrics,
   .settings-summary {
     grid-template-columns: 1fr;
+  }
+
+  .overview-insight-grid.settings-line-grid .metric-card {
+    grid-template-columns: 14px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .overview-insight-grid.settings-line-grid .metric-card::before {
+    grid-row: 1 / span 4;
+  }
+
+  .overview-insight-grid.settings-line-grid .metric-card-head,
+  .overview-insight-grid.settings-line-grid .metric-card strong,
+  .overview-insight-grid.settings-line-grid .settings-card-value,
+  .overview-insight-grid.settings-line-grid .metric-card small,
+  .overview-insight-grid.settings-line-grid .metric-card > em,
+  .overview-insight-grid.settings-line-grid .settings-card-actions {
+    grid-column: 2;
+    grid-row: auto;
   }
 
   .chart-detail-grid article,
