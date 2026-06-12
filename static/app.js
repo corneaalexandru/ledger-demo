@@ -1416,7 +1416,13 @@ function bindEvents() {
       applyCategoryFilter(action.dataset.category || "", action.dataset.transactionClass || "", action.textContent || "");
       return;
     }
-    if (action.dataset.action === "filter-monthly-target" || action.dataset.action === "filter-monthly-target-category") {
+    if (action.dataset.action === "filter-monthly-target") {
+      event.preventDefault();
+      event.stopPropagation();
+      openMonthlyTargetPeriod(action.dataset);
+      return;
+    }
+    if (action.dataset.action === "filter-monthly-target-category") {
       event.preventDefault();
       event.stopPropagation();
       applyMonthlyTargetTransactionFilter(action.dataset);
@@ -1866,7 +1872,7 @@ function bindEvents() {
       state.transactionView = "monthlyTargets";
       state.query = "";
       if (elements.search) elements.search.value = "";
-      state.transactionFilters = emptyTransactionFilters();
+      state.transactionFilters = emptyTransactionFilters(filtersForPeriod());
       state.transactionOffset = 0;
       state.selectedTransactions.clear();
       state.selectedTransactionId = "";
@@ -1876,11 +1882,7 @@ function bindEvents() {
       state.selectedYearlyTargetYear = "";
       state.targetDetailEditing = false;
       resetStatementPanel();
-      if (!transactionPayloadHasScope(state.transactions, "targets")) {
-        loadTransactions();
-      } else {
-        render();
-      }
+      loadTransactions();
     }
     if (action.dataset.action === "transaction-yearly-targets-tab") {
       state.transactionView = "monthlyTargets";
@@ -2289,10 +2291,11 @@ function bindEvents() {
     const portfolioInstrumentRow = event.target.closest("[data-action='open-portfolio-instrument']");
     const portfolioMipRow = event.target.closest("[data-action='open-portfolio-mip']");
     const exitPhaseRow = event.target.closest("[data-action='open-exit-phase']");
-    const monthlyTargetFilterRow = event.target.closest("[data-action='filter-monthly-target'], [data-action='filter-monthly-target-category']");
+    const monthlyTargetFilterRow = event.target.closest("[data-action='filter-monthly-target']");
+    const monthlyTargetCategoryFilterRow = event.target.closest("[data-action='filter-monthly-target-category']");
     const monthlyTargetRow = event.target.closest("[data-action='open-monthly-target']");
     const yearlyTargetRow = event.target.closest("[data-action='open-yearly-target']");
-    if (!accountRow && !row && !tradeRow && !portfolioInstrumentRow && !portfolioMipRow && !exitPhaseRow && !monthlyTargetFilterRow && !monthlyTargetRow && !yearlyTargetRow) return;
+    if (!accountRow && !row && !tradeRow && !portfolioInstrumentRow && !portfolioMipRow && !exitPhaseRow && !monthlyTargetFilterRow && !monthlyTargetCategoryFilterRow && !monthlyTargetRow && !yearlyTargetRow) return;
     event.preventDefault();
     state.periodPanelOpen = false;
     if (accountRow) {
@@ -2316,7 +2319,10 @@ function bindEvents() {
       state.selectedExitPhaseEditing = false;
       state.exitPhaseActionError = "";
     } else if (monthlyTargetFilterRow) {
-      applyMonthlyTargetTransactionFilter(monthlyTargetFilterRow.dataset);
+      openMonthlyTargetPeriod(monthlyTargetFilterRow.dataset);
+      return;
+    } else if (monthlyTargetCategoryFilterRow) {
+      applyMonthlyTargetTransactionFilter(monthlyTargetCategoryFilterRow.dataset);
       return;
     } else if (monthlyTargetRow) {
       state.selectedMonthlyTargetMonth = monthlyTargetRow.dataset.monthlyTargetMonth || "";
@@ -17068,6 +17074,37 @@ function applyCategoryFilter(category, transactionClass = "", label = "") {
   loadTransactions();
 }
 
+function openMonthlyTargetPeriod(dataset = {}) {
+  const month = String(dataset.monthlyTargetMonth || dataset.month || "").slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return;
+  syncPeriodFromTargetMonth(month);
+  state.view = "transactions";
+  state.transactionView = "monthlyTargets";
+  state.query = "";
+  if (elements.search) elements.search.value = "";
+  state.periodPanelOpen = false;
+  state.transactionFilters = emptyTransactionFilters(filtersForPeriod());
+  state.transactionOffset = 0;
+  state.selectedTransactions.clear();
+  state.selectedTransactionId = "";
+  state.selectedTransactionEditing = false;
+  state.selectedMonthlyTargetMonth = "";
+  state.selectedYearlyTargetYear = "";
+  state.targetDetailEditing = false;
+  state.transactionActionError = "";
+  resetStatementPanel();
+  loadTransactions();
+}
+
+function syncPeriodFromTargetMonth(month = "") {
+  state.period.mode = "month";
+  state.period.dayPickerMonth = "";
+  state.period.dayMonth = month;
+  state.period.month = month;
+  state.period.year = Number(month.slice(0, 4)) || state.period.year;
+  state.period.calendarYear = state.period.year;
+}
+
 function applyMonthlyTargetTransactionFilter(dataset = {}) {
   const month = String(dataset.monthlyTargetMonth || dataset.month || "").slice(0, 7);
   const range = heatmapDateRange(month, "month");
@@ -17297,18 +17334,22 @@ function syncPeriodFromHeatmap(value, granularity) {
     state.period.mode = "day";
     state.period.day = raw.slice(0, 10);
     state.period.dayMonth = raw.slice(0, 7);
+    state.period.dayPickerMonth = "";
     state.period.month = state.period.dayMonth;
     state.period.year = Number(raw.slice(0, 4)) || state.period.year;
     state.period.calendarYear = state.period.year;
   }
   if (granularity === "month" && raw.length >= 7) {
     state.period.mode = "month";
+    state.period.dayPickerMonth = "";
+    state.period.dayMonth = raw.slice(0, 7);
     state.period.month = raw.slice(0, 7);
     state.period.year = Number(raw.slice(0, 4)) || state.period.year;
     state.period.calendarYear = state.period.year;
   }
   if (granularity === "year" && /^\d{4}$/.test(raw)) {
     state.period.mode = "year";
+    state.period.dayPickerMonth = "";
     state.period.year = Number(raw);
     state.period.calendarYear = state.period.year;
     state.period.yearRangeStart = yearRangeStartFor(state.period.year);
