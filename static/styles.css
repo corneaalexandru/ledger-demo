@@ -845,67 +845,76 @@ kbd {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.settings-tabs {
-  gap: 28px;
-}
-
-.settings-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
+.settings-insight-grid {
   width: 100%;
-  max-width: 1280px;
-  align-items: stretch;
+  max-width: none;
 }
 
-.settings-card-grid-single {
-  grid-template-columns: minmax(0, 1fr);
+.settings-insight-grid .metric-card {
+  min-height: 156px;
 }
 
-.settings-card-grid-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.settings-metric-card strong {
+  overflow-wrap: anywhere;
 }
 
-.settings-card {
+.settings-card-value {
   display: grid;
-  align-content: start;
-  min-width: 0;
-  gap: 14px;
-  min-height: 160px;
-  padding: 18px 22px;
-  border-left: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
-}
-
-.settings-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 24px;
-}
-
-.settings-card-head h2 {
-  display: flex;
-  align-items: center;
   gap: 8px;
+  margin-top: 5px;
+  color: var(--strong);
+  font-size: 25px;
+  font-weight: 760;
+  line-height: 1.04;
+}
+
+.settings-card-value input,
+.settings-card-value select,
+.settings-input-card input,
+.settings-input-card select {
+  width: 100%;
+  min-height: 38px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--strong);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.settings-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.settings-card-actions .inline-status {
   margin: 0;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.2;
+}
+
+.settings-profile-form {
+  display: contents;
+}
+
+.settings-document-card {
+  grid-column: 1 / -1;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.settings-document-card .settings-markdown {
+  max-width: none;
+  margin-top: 14px;
 }
 
 .settings-about-tabs {
   margin-bottom: 22px;
-}
-
-.settings-changelog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .settings-markdown {
@@ -956,132 +965,10 @@ kbd {
   margin-top: 6px;
 }
 
-.settings-list {
-  display: grid;
-}
-
-.settings-list article {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-  min-height: 72px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.settings-list article:last-child {
-  border-bottom: 0;
-}
-
-.settings-list strong {
-  display: block;
-  color: var(--strong);
-  font-weight: 700;
-}
-
-.settings-list span {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-.settings-list-values {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  color: var(--muted);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.settings-list-values em {
-  color: var(--strong);
-  font-style: normal;
-  font-weight: 650;
-}
-
 .settings-row-link {
   color: var(--strong);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.settings-profile-form {
-  display: grid;
-  gap: 16px;
-}
-
-.settings-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.settings-field-grid label {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-}
-
-.settings-field-grid label span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.settings-field-grid input {
-  width: 100%;
-  min-height: 38px;
-  box-sizing: border-box;
-  padding: 8px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--strong);
-  font: inherit;
-}
-
-.settings-profile-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 18px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.settings-profile-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.settings-actions {
-  padding-top: 18px;
-}
-
-.settings-actions .small-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.settings-sync-actions {
-  display: grid;
-  gap: 10px;
-}
-
-.settings-sync-actions .inline-status {
-  margin: 0;
-}
-
-.settings-sync-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
 }
 
 .settings-select {
@@ -1237,37 +1124,6 @@ kbd {
 .statement-file-name {
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.settings-threshold-list {
-  display: grid;
-  gap: 0;
-}
-
-.settings-threshold-list label {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 160px);
-  gap: 18px;
-  align-items: center;
-  min-height: 76px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.settings-threshold-list label > span {
-  display: grid;
-  gap: 4px;
-}
-
-.settings-threshold-list strong {
-  color: var(--strong);
-}
-
-.settings-threshold-list em {
-  color: var(--muted);
-  font-style: normal;
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .settings-threshold-input {
@@ -6445,15 +6301,9 @@ table.portfolio-table td:nth-child(7) {
 
   .settings-layout,
   .settings-layout-two,
-  .settings-card-grid,
-  .settings-card-grid-two,
   .chart-detail-grid,
   .settings-metrics,
   .settings-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-field-grid {
     grid-template-columns: 1fr;
   }
 
