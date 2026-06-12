@@ -11834,31 +11834,35 @@ function monthlyTargetCategoryProgressBar(category = {}, mode = "expense") {
 
 function monthlyTargetProgressBar(row = {}) {
   return targetProgressBar({
-    target: row.savings_target_eur,
-    actual: monthlyTargetActualRetained(row),
+    target: row.expense_ceiling_eur,
+    actual: row.actual_expense_eur,
     actualAvailable: monthlyTargetActualsAreDue(row),
-    className: "is-retention is-compact",
+    className: "is-expense is-compact",
   });
 }
 
 function yearlyTargetProgressBar(row = {}) {
   return targetProgressBar({
-    target: row.target_savings_eur,
-    actual: row.actual_savings_eur,
-    className: "is-retention is-compact",
+    target: row.expense_ceiling_eur,
+    actual: row.actual_expenses_eur,
+    className: "is-expense is-compact",
   });
 }
 
 function targetProgressBar({ target = 0, actual = 0, actualAvailable = true, className = "" } = {}) {
   const targetValue = Math.max(0, numericValue(target));
   const actualValue = actualAvailable ? Math.max(0, numericValue(actual)) : 0;
+  const hasTarget = targetValue > 0;
   const cappedActual = targetValue > 0 ? Math.min(actualValue, targetValue) : 0;
   const overAmount = actualAvailable ? Math.max(actualValue - targetValue, 0) : 0;
-  const basis = Math.max(targetValue, actualValue, 1);
-  const plannedPct = clampValue(percentOf(targetValue, basis), 0, 100);
-  const achievedPct = clampValue(percentOf(cappedActual, basis), 0, 100);
-  const overPct = clampValue(percentOf(overAmount, basis), 0, 100);
-  const overLeftPct = plannedPct;
+  const plannedPct = hasTarget ? 100 : 0;
+  const achievedPct = hasTarget ? clampValue(percentOf(cappedActual, targetValue), 0, 100) : 0;
+  const overPct = hasTarget
+    ? clampValue(percentOf(overAmount, targetValue), 0, 100)
+    : actualValue > 0
+      ? 100
+      : 0;
+  const overLeftPct = hasTarget ? 100 : 0;
   const status = !actualAvailable || !actualValue
     ? "empty"
     : actualValue > targetValue

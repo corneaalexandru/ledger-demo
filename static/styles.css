@@ -5210,11 +5210,21 @@ input.is-invalid {
 }
 
 .target-period-cell {
+  --target-period-label-width: 128px;
+  --target-period-bar-width: 128px;
   display: grid;
-  grid-template-columns: max-content minmax(86px, 128px);
+  grid-template-columns: var(--target-period-label-width) var(--target-period-bar-width);
   align-items: center;
   gap: 12px;
   min-width: 0;
+}
+
+.planning-target-table .target-period-cell {
+  --target-period-label-width: 48px;
+}
+
+.monthly-target-table .target-period-cell {
+  --target-period-label-width: 132px;
 }
 
 .target-progress-strip {
@@ -5227,13 +5237,14 @@ input.is-invalid {
   width: min(100%, 440px);
   min-width: 220px;
   height: 16px;
+  overflow: visible;
   justify-self: stretch;
 }
 
 .target-progress-strip.is-compact {
   width: 100%;
   min-width: 86px;
-  max-width: 128px;
+  max-width: var(--target-period-bar-width, 128px);
   height: 10px;
 }
 
