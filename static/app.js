@@ -9777,7 +9777,6 @@ function renderSettings() {
       <h1>Settings</h1>
     </section>
     ${settingsGeneralTabs()}
-    ${settingsPageDivider()}
     <section class="settings-page">
       ${settingsDashboard({ accounts, connections, netWorth, projectCurrency, stats, transactions })}
     </section>
