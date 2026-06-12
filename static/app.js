@@ -3426,13 +3426,128 @@ function overviewTabs() {
 }
 
 function overviewInsightsDashboard(insightCards = [], accounts = {}, transactions = {}) {
+  const headlineCards = overviewHeadlineInsightCards(insightCards);
+  const headlineKeys = new Set(headlineCards.map((card) => overviewInsightCardKey(card)));
+  const headlineFamilies = new Set(headlineCards.map((card) => overviewInsightCardFamily(card)).filter(Boolean));
+  const supportingCards = insightCards.filter((card) => {
+    const family = overviewInsightCardFamily(card);
+    if (headlineKeys.has(overviewInsightCardKey(card))) return false;
+    if (family === "net-worth") return false;
+    if (family === "structural-overspending" && headlineFamilies.has(family)) return false;
+    return true;
+  });
   return `
     <section class="overview-section overview-insights-section">
-      <section class="overview-insight-grid">
-        ${insightCards.map((card) => metricCard(card.label, card.value, card.meta, card.note, card.icon, card)).join("")}
+      <section class="overview-insight-grid overview-headline-grid">
+        ${headlineCards.map((card) => metricCard(card.label, card.value, card.meta, card.note, card.icon, card)).join("")}
       </section>
+      ${overviewSupportingInsightSections(supportingCards)}
     </section>
   `;
+}
+
+function overviewHeadlineInsightCards(cards = []) {
+  const selected = [];
+  const available = cards.filter((card) => overviewInsightCardFamily(card) !== "net-worth");
+  const addCard = (card) => {
+    if (!card) return;
+    const key = overviewInsightCardKey(card);
+    if (selected.some((item) => overviewInsightCardKey(item) === key)) return;
+    selected.push(card);
+  };
+  const findById = (id) => available.find((card) => overviewInsightCardKey(card) === id);
+  addCard(findById("strategic-monthly-surplus"));
+  addCard(findById("strategic-savings-rate"));
+  addCard(findById("strategic-cash-runway"));
+  addCard(available.find((card) => overviewInsightCardFamily(card) === "structural-overspending"));
+  addCard(
+    available
+      .filter((card) => !selected.some((item) => overviewInsightCardKey(item) === overviewInsightCardKey(card)))
+      .filter((card) => overviewHeadlineRiskScore(card) > 0)
+      .sort((a, b) => overviewHeadlineRiskScore(b) - overviewHeadlineRiskScore(a))[0],
+  );
+  available.forEach((card) => {
+    if (selected.length < 5) addCard(card);
+  });
+  return selected.slice(0, 5);
+}
+
+function overviewHeadlineRiskScore(card = {}) {
+  const text = overviewInsightCardSearchText(card);
+  let score = card.tone === "negative" ? 20 : 0;
+  if (text.includes("concentration")) score += 100;
+  if (text.includes("credit utilization")) score += 92;
+  if (text.includes("liquidity below")) score += 88;
+  if (text.includes("investment share")) score += 70;
+  if (text.includes("target breach")) score += 62;
+  if (text.includes("deployment")) score += 52;
+  if (text.includes("savings rate below")) score += 45;
+  return score;
+}
+
+function overviewSupportingInsightSections(cards = []) {
+  const groups = overviewSupportingInsightGroups(cards);
+  if (!groups.length) return "";
+  return `
+    <section class="overview-supporting-section" aria-label="Supporting overview metrics">
+      ${groups.map((group) => `
+        <section class="overview-supporting-group">
+          <span class="section-kicker">${safe(group.label)}</span>
+          <section class="overview-insight-grid settings-line-grid overview-line-grid">
+            ${group.cards.map((card) => overviewSupportingInsightLine(card)).join("")}
+          </section>
+        </section>
+      `).join("")}
+    </section>
+  `;
+}
+
+function overviewSupportingInsightGroups(cards = []) {
+  const groups = [
+    { id: "risk", label: "Risk", cards: [] },
+    { id: "capital", label: "Capital", cards: [] },
+    { id: "data-quality", label: "Data Quality", cards: [] },
+    { id: "planning", label: "Planning", cards: [] },
+    { id: "trading", label: "Trading", cards: [] },
+    { id: "operations", label: "Operations", cards: [] },
+  ];
+  const byId = Object.fromEntries(groups.map((group) => [group.id, group]));
+  cards.forEach((card) => {
+    byId[overviewSupportingInsightGroupId(card)]?.cards.push(card);
+  });
+  return groups.filter((group) => group.cards.length);
+}
+
+function overviewSupportingInsightLine(card = {}) {
+  return metricCard(card.label, card.value, card.meta, card.note, card.icon, {
+    id: card.id,
+    tone: card.tone,
+  });
+}
+
+function overviewSupportingInsightGroupId(card = {}) {
+  const text = overviewInsightCardSearchText(card);
+  if (/(overspending|concentration|credit utilization|deficit|ledger gap|liability ratio|liquidity below)/.test(text)) return "risk";
+  if (/(review|data quality|manual entry|unreviewed|recurring patterns)/.test(text)) return "data-quality";
+  if (/(target breach|savings rate|recurring spend|expense volatility|positive cashflow|investable surplus|spend anomaly|deployment)/.test(text)) return "planning";
+  if (/(trade|realized|unrealized|investment return|price freshness)/.test(text)) return "trading";
+  if (/(capital|liquid|investment share|fx exposure|credit headroom|net worth)/.test(text)) return "capital";
+  return "operations";
+}
+
+function overviewInsightCardKey(card = {}) {
+  return card.id || kebabCase(card.label || "insight");
+}
+
+function overviewInsightCardFamily(card = {}) {
+  const text = overviewInsightCardSearchText(card);
+  if (text.includes("net worth")) return "net-worth";
+  if (text.includes("structural overspending")) return "structural-overspending";
+  return "";
+}
+
+function overviewInsightCardSearchText(card = {}) {
+  return `${card.id || ""} ${card.label || ""} ${card.meta || ""} ${card.note || ""}`.toLowerCase();
 }
 
 function overviewUnifiedInsightCards(strategicCards = [], systemInsights = [], dashboardCards = [], accounts = {}, transactions = {}, trades = {}, portfolio = {}) {

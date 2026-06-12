@@ -1854,12 +1854,32 @@ html[data-theme="light"] .skeleton-table span::after {
   margin-top: 6px;
 }
 
+.overview-supporting-section {
+  display: grid;
+  gap: 28px;
+  margin-top: 4px;
+}
+
+.overview-supporting-group {
+  display: grid;
+  gap: 8px;
+}
+
+.overview-line-grid {
+  max-width: 1760px;
+}
+
 .overview-insight-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   column-gap: 0;
   row-gap: 34px;
   align-items: stretch;
+}
+
+.overview-insight-grid.overview-headline-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 34px;
 }
 
 .overview-insight-grid .metric-card {
@@ -6473,6 +6493,10 @@ table.portfolio-table td:nth-child(7) {
 
   .settings-layout-two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-insight-grid.overview-headline-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   }
 }
 
