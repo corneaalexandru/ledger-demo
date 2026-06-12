@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Removed the duplicate divider line below detail drawer headers.
 - Extended monthly target progress bars with a red proportional over-target segment.
 - Kept transaction date, month, and year quick filters active when switching to Insights or Targets.
 - Fixed monthly target drilldowns so month rows stay in Targets and keep the top period selector in sync.

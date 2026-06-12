@@ -5762,6 +5762,10 @@ table.portfolio-table td:nth-child(7) {
   border-top: 1px solid var(--line);
 }
 
+.details-panel dl div:first-child {
+  border-top: 0;
+}
+
 .details-panel dl div.detail-section {
   grid-template-columns: 1fr;
   gap: 10px;
