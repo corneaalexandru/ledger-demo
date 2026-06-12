@@ -1868,22 +1868,7 @@ html[data-theme="light"] .skeleton-table span::after {
 }
 
 .overview-insights-section {
-  margin-top: 6px;
-}
-
-.overview-supporting-section {
-  display: grid;
-  gap: 28px;
-  margin-top: 4px;
-}
-
-.overview-supporting-group {
-  display: grid;
-  gap: 8px;
-}
-
-.overview-headline-group {
-  margin-bottom: 28px;
+  margin-top: 22px;
 }
 
 .overview-line-grid {

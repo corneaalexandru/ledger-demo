@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Flattened Overview insights into one continuous bordered bullet list and removed the group headers.
 - Added a Settings header/content divider so the page matches the About page boundary treatment.
 
 ## 2026-06-12

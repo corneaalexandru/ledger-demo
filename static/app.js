@@ -3453,22 +3453,22 @@ function overviewInsightsDashboard(insightCards = [], accounts = {}, transaction
     if (family === "structural-overspending" && headlineFamilies.has(family)) return false;
     return true;
   });
+  const orderedCards = [
+    ...headlineCards,
+    ...overviewOrderedSupportingInsightCards(supportingCards),
+  ];
   return `
     <section class="overview-section overview-insights-section">
-      ${overviewHeadlineInsightSection(headlineCards)}
-      ${overviewSupportingInsightSections(supportingCards)}
+      ${overviewContinuousInsightSection(orderedCards)}
     </section>
   `;
 }
 
-function overviewHeadlineInsightSection(cards = []) {
+function overviewContinuousInsightSection(cards = []) {
   if (!cards.length) return "";
   return `
-    <section class="overview-supporting-group overview-headline-group" aria-label="Headline overview metrics">
-      <span class="section-kicker">Key Metrics</span>
-      <section class="overview-insight-grid settings-line-grid document-line-list overview-line-grid overview-headline-list">
-        ${cards.map((card) => overviewSupportingInsightLine(card)).join("")}
-      </section>
+    <section class="overview-insight-grid settings-line-grid document-line-list overview-line-grid overview-continuous-list" aria-label="Overview metrics">
+      ${cards.map((card) => overviewSupportingInsightLine(card)).join("")}
     </section>
   `;
 }
@@ -3518,37 +3518,20 @@ function overviewHeadlineRiskScore(card = {}) {
   return score;
 }
 
-function overviewSupportingInsightSections(cards = []) {
-  const groups = overviewSupportingInsightGroups(cards);
-  if (!groups.length) return "";
-  return `
-    <section class="overview-supporting-section" aria-label="Supporting overview metrics">
-      ${groups.map((group) => `
-        <section class="overview-supporting-group">
-          <span class="section-kicker">${safe(group.label)}</span>
-          <section class="overview-insight-grid settings-line-grid document-line-list overview-line-grid">
-            ${group.cards.map((card) => overviewSupportingInsightLine(card)).join("")}
-          </section>
-        </section>
-      `).join("")}
-    </section>
-  `;
-}
-
-function overviewSupportingInsightGroups(cards = []) {
+function overviewOrderedSupportingInsightCards(cards = []) {
   const groups = [
-    { id: "risk", label: "Risk", cards: [] },
-    { id: "capital", label: "Capital", cards: [] },
-    { id: "data-quality", label: "Data Quality", cards: [] },
-    { id: "planning", label: "Planning", cards: [] },
-    { id: "trading", label: "Trading", cards: [] },
-    { id: "operations", label: "Operations", cards: [] },
+    { id: "risk", cards: [] },
+    { id: "capital", cards: [] },
+    { id: "data-quality", cards: [] },
+    { id: "planning", cards: [] },
+    { id: "trading", cards: [] },
+    { id: "operations", cards: [] },
   ];
   const byId = Object.fromEntries(groups.map((group) => [group.id, group]));
   cards.forEach((card) => {
     byId[overviewSupportingInsightGroupId(card)]?.cards.push(card);
   });
-  return groups.filter((group) => group.cards.length);
+  return groups.flatMap((group) => group.cards);
 }
 
 function overviewSupportingInsightLine(card = {}) {
