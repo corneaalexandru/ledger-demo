@@ -9776,6 +9776,7 @@ function renderSettings() {
     <section class="transactions-head settings-head">
       <h1>Settings</h1>
     </section>
+    ${settingsGeneralTabs()}
     ${settingsPageDivider()}
     <section class="settings-page">
       ${settingsDashboard({ accounts, connections, netWorth, projectCurrency, stats, transactions })}
@@ -9797,6 +9798,14 @@ function settingsDashboard(context = {}) {
 
 function settingsPageDivider() {
   return `<div class="settings-page-divider" aria-hidden="true"></div>`;
+}
+
+function settingsGeneralTabs() {
+  return `
+    <nav class="transaction-tabs settings-about-tabs" aria-label="Settings sections">
+      <button class="is-active" type="button">General</button>
+    </nav>
+  `;
 }
 
 function renderAbout() {

@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Labeled the Settings content as the General settings subpage under the page header.
 - Replaced the public XLSX starter workflow with native Google Sheet setup that creates and seeds tabs directly.
 - Seeded account country codes in the public starter rows so the Accounts Country column is populated immediately.
 - Flattened Overview insights into one continuous bordered bullet list and removed the group headers.
