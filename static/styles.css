@@ -5664,7 +5664,7 @@ table.trades-table td.trade-return-col {
 }
 
 .accounts-table {
-  min-width: 1240px;
+  min-width: 1340px;
 }
 
 table.accounts-table th.account-check-cell,
@@ -5696,6 +5696,11 @@ table.accounts-table td.account-type-col {
 
 table.accounts-table th.account-currency-col,
 table.accounts-table td.account-currency-col {
+  width: 110px;
+}
+
+table.accounts-table th.account-country-col,
+table.accounts-table td.account-country-col {
   width: 110px;
 }
 

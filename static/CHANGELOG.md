@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Added account country support across the Accounts Google Sheet schema, API filters, table, details, and edit form.
 - Standardized Overview, Settings, and About bullet sections with the same left-border document-list treatment.
 - Removed the repeated single-month target recap row so month drilldowns open directly on category models.
 - Converted the Overview headline metrics from cards into the same plain bullet-list style as the supporting sections.

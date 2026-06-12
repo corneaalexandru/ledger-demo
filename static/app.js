@@ -629,6 +629,7 @@ const accountFields = [
   ["account_status", "Status"],
   ["capital_bucket", "Capital Bucket"],
   ["account_type", "Type"],
+  ["country_code", "Country"],
   ["account_currency", "Currency"],
   ["balance_native", "Native Balance"],
   ["credit_limit_native", "Credit Limit"],
@@ -13253,6 +13254,7 @@ function accountTable(rows, data) {
             <th class="account-status-col">${accountSortHeader("Status", "status")}</th>
             <th class="account-bucket-col">${accountSortHeader("Bucket", "bucket")}</th>
             <th class="account-type-col">${accountSortHeader("Type", "type")}</th>
+            <th class="account-country-col">${accountSortHeader("Country", "country")}</th>
             <th class="account-currency-col">${accountSortHeader("Currency", "currency")}</th>
             <th class="account-money-col align-right">${accountSortHeader("Native Balance", "native_balance")}</th>
             <th class="account-money-col align-right">${accountSortHeader(`${projectCurrencyCode()} Value`, "balance")}</th>
@@ -13283,11 +13285,12 @@ function accountTable(rows, data) {
               <td class="account-status-col">${quickFilterHtml(row.ledger_status === "deleted" ? "deleted" : row.account_status, accountStatusInline(row), { field: row.ledger_status === "deleted" ? "ledger_status" : "account_status" })}</td>
               <td class="account-bucket-col">${quickFilterControl(row.capital_bucket, labelize(row.capital_bucket), { field: "capital_bucket" })}</td>
               <td class="account-type-col">${quickFilterControl(row.account_type, labelize(row.account_type), { field: "account_type" })}</td>
+              <td class="account-country-col">${quickFilterHtml(row.country_code, countryCell(row.country_code), { field: "country_code" })}</td>
               <td class="account-currency-col">${quickFilterHtml(row.account_currency, currencyCell(row.account_currency), { field: "account_currency" })}</td>
               <td class="account-money-col align-right ${signedClass(row.balance_native)}">${formatAccountMoney(row.balance_native, row.account_currency, { project: false })}</td>
               <td class="account-money-col align-right ${signedClass(row.amount_eur_converted)}">${formatAccountMoney(row.amount_eur_converted, "EUR")}</td>
             </tr>
-          `).join("") : emptyRow(9)}
+          `).join("") : emptyRow(10)}
         </tbody>
       </table>
     </section>
@@ -14378,6 +14381,7 @@ function accountDetailsPanel(rows = []) {
         ${detailItem("Reference", row.account_reference)}
         ${detailItem("Capital Bucket", labelize(row.capital_bucket))}
         ${detailItem("Type", labelize(row.account_type))}
+        ${detailItemHtml("Country", countryCell(row.country_code))}
         ${detailItemHtml("Currency", currencyCell(row.account_currency))}
         ${detailItem("Native Balance", formatAccountMoney(row.balance_native, row.account_currency, { project: false }))}
         ${detailItem("Project Value", formatAccountMoney(row.amount_eur_converted, "EUR"))}
@@ -14711,6 +14715,7 @@ function accountComboOptions(key) {
     provider_id: options.provider_ids || [],
     capital_bucket: options.capital_buckets || [],
     account_type: options.account_types || [],
+    country_code: options.countries || countryOptions(),
   };
   return optionsByField[key] || null;
 }
@@ -16434,6 +16439,7 @@ function defaultNewAccountValues() {
     account_status: "active",
     capital_bucket: preferredOptionValue(options.capital_buckets, "reserve", "reserve"),
     account_type: preferredOptionValue(options.account_types, "bank_account", "bank_account"),
+    country_code: "",
     account_currency: preferredOptionValue(options.account_currencies, "EUR", "EUR"),
     balance_native: "0",
     ledger_status: "accountable",
@@ -16478,6 +16484,9 @@ async function saveTransaction(form) {
 async function saveAccount(form) {
   const accountId = form.dataset.accountId || state.selectedAccountId;
   const values = Object.fromEntries(new FormData(form).entries());
+  if (Object.prototype.hasOwnProperty.call(values, "country_code")) {
+    values.country_code = countryCodeFromInput(values.country_code);
+  }
   state.accountActionError = "";
   try {
     const result = await fetchJson(`/api/accounts/${encodeURIComponent(accountId)}`, {
@@ -17614,6 +17623,7 @@ function applyAccountInsightFilter(dataset = {}) {
     provider_id: dataset.providerId || "",
     capital_bucket: dataset.capitalBucket || "",
     account_type: dataset.accountType || "",
+    country_code: dataset.countryCode || "",
     account_currency: dataset.accountCurrency || "",
     account_status: dataset.accountStatus || "",
     review_status: dataset.reviewStatus || "",
@@ -17738,6 +17748,7 @@ function defaultAccountFilters(overrides = {}) {
     provider_id: "",
     capital_bucket: "",
     account_type: "",
+    country_code: "",
     account_currency: "",
     account_status: "",
     review_status: "",
@@ -18056,7 +18067,7 @@ function filtersForPeriod() {
 
 function sourceStats() {
   const stats = state.overview?.sheet_stats || [
-    { name: "accounts_register", rows: 0, columns: 15, status: "Pending" },
+    { name: "accounts_register", rows: 0, columns: 16, status: "Pending" },
     { name: "transactions_register", rows: 0, columns: 19, status: "Pending" },
     { name: "trades_register", rows: 0, columns: 23, status: "Pending" },
   ];

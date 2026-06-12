@@ -67,6 +67,7 @@ class LocalCsvLedgerStore:
         if sheet_name == "accounts_register":
             currency = normalize_currency(next_row.get("account_currency"))
             next_row["account_currency"] = currency
+            next_row["country_code"] = normalize_country(next_row.get("country_code"))
             if has_value(next_row.get("balance_native")):
                 native = next_row.get("balance_native")
                 next_row.update(self.fx.conversion_fields(native, currency))
@@ -119,3 +120,8 @@ def first_value(row: dict, *keys: str) -> object:
         if has_value(row.get(key)):
             return row.get(key)
     return ""
+
+
+def normalize_country(value: object) -> str:
+    code = str(value or "").strip().upper()
+    return code if len(code) == 2 and code.isalpha() else ""

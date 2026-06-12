@@ -70,6 +70,7 @@ ACCOUNTS_HEADERS = [
     "ledger_status",
     "review_status",
     "notes",
+    "country_code",
 ]
 
 TRANSACTIONS_HEADERS = [
@@ -223,6 +224,11 @@ def normalize_currency(value, default: str = "EUR") -> str:
     return core_normalize_currency(value, default)
 
 
+def normalize_country(value) -> str:
+    code = str(value or "").strip().upper()
+    return code if len(code) == 2 and code.isalpha() else ""
+
+
 def fx_rate_to_eur(currency: str) -> float:
     return FX_RATES_TO_EUR.get(normalize_currency(currency), 1.0)
 
@@ -327,6 +333,7 @@ def normalize_row(sheet_name: str, row: dict) -> dict:
     if sheet_name == "accounts_register":
         currency = normalize_currency(next_row.get("account_currency"))
         next_row["account_currency"] = currency
+        next_row["country_code"] = normalize_country(next_row.get("country_code"))
         if has_value(next_row.get("balance_native")):
             native = num(next_row.get("balance_native"))
             next_row["amount_eur_converted"] = money_text(convert_currency(native, currency, "EUR"))

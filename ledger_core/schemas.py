@@ -23,6 +23,7 @@ ACCOUNTS_HEADERS = [
     "ledger_status",
     "review_status",
     "notes",
+    "country_code",
 ]
 
 TRANSACTIONS_HEADERS = [
@@ -152,7 +153,7 @@ ID_PREFIXES = {
 }
 
 GOOGLE_SHEET_RANGES = {
-    ACCOUNTS_SHEET: "A:O",
+    ACCOUNTS_SHEET: "A:P",
     TRANSACTIONS_SHEET: "A:X",
     TRADES_SHEET: "A:X",
 }
