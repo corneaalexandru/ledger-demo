@@ -5131,6 +5131,13 @@ input.is-invalid {
   min-width: 1480px;
 }
 
+.monthly-target-category-cell {
+  display: grid;
+  grid-template-columns: minmax(210px, max-content) minmax(240px, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+
 .monthly-target-category-name {
   display: inline-flex;
   align-items: center;
@@ -5141,6 +5148,111 @@ input.is-invalid {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
+}
+
+.target-candle-strip {
+  --candle-fill: var(--accent-2);
+  --candle-overrun: var(--danger);
+  --target-pct: 100%;
+  position: relative;
+  display: block;
+  width: min(100%, 440px);
+  min-width: 220px;
+  justify-self: stretch;
+}
+
+.target-candle-strip.is-income {
+  --candle-fill: var(--accent);
+  --candle-overrun: var(--accent);
+}
+
+.target-candle-track {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(4px, 1fr));
+  gap: 4px;
+  align-items: center;
+  min-height: 24px;
+}
+
+.target-candle {
+  position: relative;
+  display: block;
+  min-width: 4px;
+  height: 22px;
+}
+
+.target-candle::before,
+.target-candle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.target-candle::before {
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  background: color-mix(in srgb, var(--line) 78%, transparent);
+}
+
+.target-candle::after {
+  top: 6px;
+  bottom: 6px;
+  width: min(7px, 80%);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--surface-3) 76%, transparent);
+}
+
+.target-candle:nth-child(3n + 1)::after {
+  top: 4px;
+  bottom: 4px;
+}
+
+.target-candle:nth-child(4n + 2)::after {
+  top: 8px;
+  bottom: 5px;
+}
+
+.target-candle.is-planned::before {
+  background: color-mix(in srgb, var(--faint) 62%, transparent);
+}
+
+.target-candle.is-planned::after {
+  background: color-mix(in srgb, var(--faint) 12%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--faint) 26%, transparent);
+}
+
+.target-candle.is-achieved::before {
+  background: color-mix(in srgb, var(--candle-fill) 72%, transparent);
+}
+
+.target-candle.is-achieved::after {
+  background: color-mix(in srgb, var(--candle-fill) 72%, var(--surface));
+  border-color: color-mix(in srgb, var(--candle-fill) 72%, transparent);
+}
+
+.target-candle-strip.is-expense .target-candle.is-overrun::before,
+.target-candle-strip.is-expense .target-candle.is-overrun::after {
+  background: color-mix(in srgb, var(--candle-overrun) 78%, var(--surface));
+  border-color: color-mix(in srgb, var(--candle-overrun) 76%, transparent);
+}
+
+.target-candle-marker {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: var(--target-pct);
+  width: 1px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--strong) 54%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface) 80%, transparent);
+  transform: translateX(-1px);
+}
+
+.target-candle-strip.is-empty .target-candle-marker {
+  opacity: 0.42;
 }
 
 .planning-target-table th,

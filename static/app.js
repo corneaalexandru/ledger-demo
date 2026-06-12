@@ -11755,12 +11755,15 @@ function monthlyTargetCategoryDetailRow(row = {}, category = {}, mode = "expense
     <tr class="clickable-row monthly-target-category-row" data-action="filter-monthly-target-category" data-monthly-target-month="${safe(row.month || "")}" data-category="${safe(category.category || "")}" data-transaction-class="${safe(mode)}" tabindex="0">
       <td></td>
       <td colspan="4">
-        <span class="monthly-target-category-name">
-          <span class="bar-row-icon" aria-hidden="true">${icons[insightIconFor(category.category || mode, "category")] || icons.pie}</span>
-          <span>
-            <span class="table-main">${safe(categoryLabel)}</span>
-            <span class="table-sub">${safe(formatWholeCurrency(category.actual_eur || 0, "EUR"))} ${safe(mode === "expense" ? "actual spend" : "actual income")}</span>
+        <span class="monthly-target-category-cell">
+          <span class="monthly-target-category-name">
+            <span class="bar-row-icon" aria-hidden="true">${icons[insightIconFor(category.category || mode, "category")] || icons.pie}</span>
+            <span>
+              <span class="table-main">${safe(categoryLabel)}</span>
+              <span class="table-sub">${safe(formatWholeCurrency(category.actual_eur || 0, "EUR"))} ${safe(mode === "expense" ? "actual spend" : "actual income")}</span>
+            </span>
           </span>
+          ${monthlyTargetCategoryCandleStrip(category, mode)}
         </span>
       </td>
       <td class="align-right">${targetAmountCell(category.target_eur, "EUR", mode === "income" ? "income target" : "expense target")}</td>
@@ -11774,6 +11777,34 @@ function monthlyTargetCategoryDetailRow(row = {}, category = {}, mode = "expense
           `}
       </td>
     </tr>
+  `;
+}
+
+function monthlyTargetCategoryCandleStrip(category = {}, mode = "expense") {
+  const candleCount = 24;
+  const target = Math.max(0, numericValue(category.target_eur));
+  const actual = Math.max(0, numericValue(category.actual_eur));
+  const basis = Math.max(target, actual, 1);
+  const targetPct = clampValue(percentOf(target, basis), 0, 100);
+  const plannedCount = target ? clampValue(Math.round(candleCount * target / basis), 1, candleCount) : 0;
+  const actualCount = actual ? clampValue(Math.round(candleCount * actual / basis), 1, candleCount) : 0;
+  const status = !actual
+    ? "empty"
+    : actual > target && target
+      ? "over"
+      : "active";
+  const candles = Array.from({ length: candleCount }, (_, index) => {
+    const position = index + 1;
+    const planned = plannedCount && position <= plannedCount;
+    const achieved = actualCount && position <= actualCount;
+    const overrun = achieved && plannedCount && position > plannedCount;
+    return `<span class="target-candle ${planned ? "is-planned" : ""} ${achieved ? "is-achieved" : ""} ${overrun ? "is-overrun" : ""}"></span>`;
+  }).join("");
+  return `
+    <span class="target-candle-strip is-${mode === "income" ? "income" : "expense"} is-${status}" style="--target-pct: ${targetPct}%;" aria-hidden="true">
+      <span class="target-candle-track">${candles}</span>
+      ${plannedCount ? `<span class="target-candle-marker"></span>` : ""}
+    </span>
   `;
 }
 
