@@ -2892,9 +2892,7 @@ function clearQuickFilterChips(view = state.view) {
 function clearQuickFilterField(view, field) {
   if (view === "transactions") {
     if (transactionDateChipFields().includes(field)) {
-      const periodFilters = filtersForPeriod();
-      state.transactionFilters.date_from = periodFilters.date_from;
-      state.transactionFilters.date_to = periodFilters.date_to;
+      state.transactionFilters = transactionFiltersForCurrentPeriod(state.transactionFilters, { preserve: true });
       return;
     }
     if (Object.prototype.hasOwnProperty.call(state.transactionFilters, field)) {
@@ -2909,6 +2907,16 @@ function clearQuickFilterField(view, field) {
   if (view === "trades" && Object.prototype.hasOwnProperty.call(state.tradeFilters, field)) {
     state.tradeFilters[field] = "";
   }
+}
+
+function transactionFiltersForCurrentPeriod(baseFilters = state.transactionFilters, options = {}) {
+  const periodFilters = filtersForPeriod();
+  if (!options.preserve) return emptyTransactionFilters(periodFilters);
+  return emptyTransactionFilters({
+    ...baseFilters,
+    date_from: periodFilters.date_from,
+    date_to: periodFilters.date_to,
+  });
 }
 
 function reloadQuickFilterView(view) {
@@ -17525,7 +17533,7 @@ function updatePeriod(key, value) {
     state.period.calendarYear = state.period.year;
     state.period.yearRangeStart = yearRangeStartFor(state.period.year);
   }
-  state.transactionFilters = filtersForPeriod();
+  state.transactionFilters = transactionFiltersForCurrentPeriod(state.transactionFilters, { preserve: state.view === "transactions" });
   state.transactionOffset = 0;
   state.selectedTransactions.clear();
   state.selectedTransactionId = "";
@@ -17564,7 +17572,7 @@ function openPeriodDayPicker(value) {
   state.period.month = value;
   state.period.year = Number(value.slice(0, 4)) || state.period.year;
   state.period.calendarYear = state.period.year;
-  state.transactionFilters = filtersForPeriod();
+  state.transactionFilters = transactionFiltersForCurrentPeriod(state.transactionFilters, { preserve: state.view === "transactions" });
   state.transactionOffset = 0;
   state.selectedTransactions.clear();
   state.selectedTransactionId = "";

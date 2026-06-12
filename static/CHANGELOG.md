@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Kept active transaction filter chips such as category filters when changing the selected day, month, or year.
 - Corrected yearly and monthly target row bars to show expense ceiling progress with red over-ceiling extension and fixed bar alignment.
 - Reordered Settings bullets into a cleaner profile, project, source truth, sync, connections, thresholds, and preferences flow.
 - Tightened Settings inline inputs and action buttons so fields match text scale and threshold units no longer duplicate.
