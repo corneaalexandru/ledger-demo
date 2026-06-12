@@ -3465,7 +3465,7 @@ function overviewHeadlineInsightSection(cards = []) {
   return `
     <section class="overview-supporting-group overview-headline-group" aria-label="Headline overview metrics">
       <span class="section-kicker">Key Metrics</span>
-      <section class="overview-insight-grid settings-line-grid overview-line-grid overview-headline-list">
+      <section class="overview-insight-grid settings-line-grid document-line-list overview-line-grid overview-headline-list">
         ${cards.map((card) => overviewSupportingInsightLine(card)).join("")}
       </section>
     </section>
@@ -3525,7 +3525,7 @@ function overviewSupportingInsightSections(cards = []) {
       ${groups.map((group) => `
         <section class="overview-supporting-group">
           <span class="section-kicker">${safe(group.label)}</span>
-          <section class="overview-insight-grid settings-line-grid overview-line-grid">
+          <section class="overview-insight-grid settings-line-grid document-line-list overview-line-grid">
             ${group.cards.map((card) => overviewSupportingInsightLine(card)).join("")}
           </section>
         </section>
@@ -9807,7 +9807,7 @@ function settingsDashboard(context = {}) {
     ...settingsConnectionsCards(context),
     ...settingsThresholdCards(),
     ...settingsPreferencesCards(),
-  ], "settings-all-grid settings-line-grid");
+  ], "settings-all-grid settings-line-grid document-line-list");
 }
 
 function renderAbout() {
@@ -9971,7 +9971,7 @@ function settingsMetricCard({ label, value = "", meta = "", note = "", icon = ""
 
 function settingsDocumentCard(bodyHtml = "") {
   return `
-    <article class="metric-card settings-metric-card settings-document-card settings-document-body-card">
+    <article class="metric-card settings-metric-card settings-document-card settings-document-body-card document-line-list">
       ${bodyHtml}
     </article>
   `;

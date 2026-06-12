@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Standardized Overview, Settings, and About bullet sections with the same left-border document-list treatment.
 - Removed the repeated single-month target recap row so month drilldowns open directly on category models.
 - Converted the Overview headline metrics from cards into the same plain bullet-list style as the supporting sections.
 - Added persistent transaction drawer back controls so statement attachments, details, and edit views can switch without closing the drawer.

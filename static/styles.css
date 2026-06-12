@@ -854,6 +854,13 @@ kbd {
   min-height: 156px;
 }
 
+.document-line-list {
+  --document-line-inset: clamp(24px, 3vw, 44px);
+  box-sizing: border-box;
+  border-left: 1px solid var(--line);
+  padding-left: var(--document-line-inset);
+}
+
 .settings-metric-card strong {
   overflow-wrap: anywhere;
 }
@@ -1957,13 +1964,13 @@ html[data-theme="light"] .skeleton-table span::after {
   line-height: 1.32;
 }
 
-.overview-insight-grid.settings-line-grid {
+.settings-line-grid {
   display: block;
   color: var(--muted);
   line-height: 1.55;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card {
+.settings-line-grid .metric-card {
   position: relative;
   display: flex;
   flex-wrap: wrap;
@@ -1976,9 +1983,11 @@ html[data-theme="light"] .skeleton-table span::after {
   border-left: 0;
   border-bottom: 0;
   overflow: visible;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card::before {
+.settings-line-grid .metric-card::before {
   content: "•";
   position: absolute;
   left: 0;
@@ -1988,26 +1997,27 @@ html[data-theme="light"] .skeleton-table span::after {
   line-height: 1.45;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card-head {
+.settings-line-grid .metric-card-head {
   display: inline-flex;
   align-items: baseline;
   gap: 0;
   min-height: 0;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card-label {
+.settings-line-grid .metric-card-label {
   color: var(--strong);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card-label::after {
+.settings-line-grid .metric-card-label::after {
   content: ":";
 }
 
-.overview-insight-grid.settings-line-grid .metric-card strong,
-.overview-insight-grid.settings-line-grid .settings-card-value {
+.settings-line-grid .metric-card strong,
+.settings-line-grid .settings-card-value {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2016,14 +2026,18 @@ html[data-theme="light"] .skeleton-table span::after {
   font-size: 14px;
   font-weight: 650;
   line-height: 1.55;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card strong.is-empty {
+.settings-line-grid .metric-card strong.is-empty {
   display: none;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card small,
-.overview-insight-grid.settings-line-grid .metric-card > em {
+.settings-line-grid .metric-card small,
+.settings-line-grid .metric-card > em {
   display: inline;
   margin: 0;
   overflow: visible;
@@ -2032,21 +2046,22 @@ html[data-theme="light"] .skeleton-table span::after {
   line-height: 1.55;
   -webkit-box-orient: initial;
   -webkit-line-clamp: unset;
+  overflow-wrap: anywhere;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card small::before {
+.settings-line-grid .metric-card small::before {
   content: " — ";
 }
 
-.overview-insight-grid.settings-line-grid .metric-card > em {
+.settings-line-grid .metric-card > em {
   font-style: normal;
 }
 
-.overview-insight-grid.settings-line-grid .metric-card > em::before {
+.settings-line-grid .metric-card > em::before {
   content: " ";
 }
 
-.overview-insight-grid.settings-line-grid .settings-card-actions {
+.settings-line-grid .settings-card-actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2054,7 +2069,7 @@ html[data-theme="light"] .skeleton-table span::after {
   vertical-align: baseline;
 }
 
-.overview-insight-grid.settings-line-grid .small-button {
+.settings-line-grid .small-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2068,16 +2083,16 @@ html[data-theme="light"] .skeleton-table span::after {
   white-space: nowrap;
 }
 
-.overview-insight-grid.settings-line-grid .small-button [data-icon],
-.overview-insight-grid.settings-line-grid .small-button [data-icon] svg {
+.settings-line-grid .small-button [data-icon],
+.settings-line-grid .small-button [data-icon] svg {
   width: 14px;
   height: 14px;
 }
 
-.overview-insight-grid.settings-line-grid .settings-card-value input,
-.overview-insight-grid.settings-line-grid .settings-card-value select,
-.overview-insight-grid.settings-line-grid .settings-input-card input,
-.overview-insight-grid.settings-line-grid .settings-input-card select {
+.settings-line-grid .settings-card-value input,
+.settings-line-grid .settings-card-value select,
+.settings-line-grid .settings-input-card input,
+.settings-line-grid .settings-input-card select {
   width: auto;
   min-width: 0;
   max-width: 100%;
@@ -2089,37 +2104,41 @@ html[data-theme="light"] .skeleton-table span::after {
   vertical-align: baseline;
 }
 
-.overview-insight-grid.settings-line-grid .settings-card-value select,
-.overview-insight-grid.settings-line-grid .settings-input-card select {
+.settings-line-grid .settings-card-value select,
+.settings-line-grid .settings-input-card select {
   width: auto;
   min-width: 168px;
   max-width: 220px;
 }
 
-.overview-insight-grid.settings-line-grid .settings-card-value > input,
-.overview-insight-grid.settings-line-grid .settings-input-card .settings-card-value > input {
+.settings-line-grid .settings-card-value > input,
+.settings-line-grid .settings-input-card .settings-card-value > input {
   width: clamp(150px, 18vw, 240px);
 }
 
-.overview-insight-grid.settings-line-grid .target-detail-input {
+.settings-line-grid .target-detail-input {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   line-height: 1.2;
 }
 
-.overview-insight-grid.settings-line-grid .target-detail-input input {
+.settings-line-grid .target-detail-input input {
   width: 64px;
   min-width: 64px;
   text-align: right;
 }
 
-.overview-insight-grid.settings-line-grid .target-detail-input em {
+.settings-line-grid .target-detail-input em {
   color: var(--muted);
   font-size: 13px;
   font-style: normal;
   font-weight: 650;
   line-height: 1.2;
+}
+
+.settings-document-card.document-line-list {
+  padding: 6px 0 6px var(--document-line-inset);
 }
 
 .overview-strategic-grid .metric-card,
