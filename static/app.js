@@ -3454,10 +3454,20 @@ function overviewInsightsDashboard(insightCards = [], accounts = {}, transaction
   });
   return `
     <section class="overview-section overview-insights-section">
-      <section class="overview-insight-grid overview-headline-grid">
-        ${headlineCards.map((card) => metricCard(card.label, card.value, card.meta, card.note, card.icon, card)).join("")}
-      </section>
+      ${overviewHeadlineInsightSection(headlineCards)}
       ${overviewSupportingInsightSections(supportingCards)}
+    </section>
+  `;
+}
+
+function overviewHeadlineInsightSection(cards = []) {
+  if (!cards.length) return "";
+  return `
+    <section class="overview-supporting-group overview-headline-group" aria-label="Headline overview metrics">
+      <span class="section-kicker">Key Metrics</span>
+      <section class="overview-insight-grid settings-line-grid overview-line-grid overview-headline-list">
+        ${cards.map((card) => overviewSupportingInsightLine(card)).join("")}
+      </section>
     </section>
   `;
 }

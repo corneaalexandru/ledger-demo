@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-12
 
+- Converted the Overview headline metrics from cards into the same plain bullet-list style as the supporting sections.
 - Added persistent transaction drawer back controls so statement attachments, details, and edit views can switch without closing the drawer.
 - Added a weighted Financial Health score to Overview using liquidity, cashflow, savings, target discipline, debt, concentration, capital momentum, and data quality.
 - Bounded target progress bars so red over-target segments scale inside the available period column instead of spilling into adjacent values.
