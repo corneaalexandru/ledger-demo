@@ -67,6 +67,7 @@ const state = {
   globalSearch: null,
   cacheStatus: null,
   dataHealth: null,
+  profile: null,
   aboutChangelog: null,
   loading: {
     overview: false,
@@ -77,6 +78,7 @@ const state = {
     statementImport: false,
     globalSearch: false,
     settingsDiagnostics: false,
+    profile: false,
     aboutChangelog: false,
   },
   error: {
@@ -88,6 +90,7 @@ const state = {
     statementImport: "",
     globalSearch: "",
     settingsDiagnostics: "",
+    profile: "",
     aboutChangelog: "",
   },
   accountFilters: defaultAccountFilters(),
@@ -145,10 +148,12 @@ const state = {
   selectedPortfolioMipEditing: false,
   portfolioMipOverrides: {},
   portfolioMipActionError: "",
+  profileActionMessage: "",
+  profileActionError: "",
   selectedExitPhaseId: "",
   selectedExitPhaseEditing: false,
   exitPhaseActionError: "",
-  settingsView: "project",
+  settingsView: "profile",
   aboutView: "copyright",
   overviewView: "insights",
   portfolioView: "overview",
@@ -242,6 +247,7 @@ const navItems = [
   { id: "portfolio", label: "Portfolio", icon: "pie" },
   { id: "planning", label: "Planning", icon: "target" },
   { id: "settings", label: "Settings", icon: "settings" },
+  { id: "about", label: "About", icon: "info" },
 ];
 
 const registerPurpose = {
@@ -275,6 +281,9 @@ const connectionItems = [
 
 const icons = {
   home: '<svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h5v-5h3v5h5v-9.5"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>',
+  user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M5 3h12l2 2v16H5z"/><path d="M8 3v6h8V3"/><path d="M8 21v-7h8v7"/></svg>',
   receipt: '<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>',
   search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>',
   filter: '<svg viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg>',
@@ -567,6 +576,7 @@ let tradeRequestId = 0;
 let portfolioReturnsRequestId = 0;
 let globalSearchRequestId = 0;
 let settingsDiagnosticsRequestId = 0;
+let profileRequestId = 0;
 let aboutChangelogRequestId = 0;
 
 const transactionFields = [
@@ -1996,7 +2006,7 @@ function bindEvents() {
     }
     if (action.dataset.action === "settings-tab") {
       state.settingsView = action.dataset.settingsView || "project";
-      if (state.settingsView === "about") loadAboutChangelog();
+      if (state.settingsView === "profile") loadProfile();
       renderPreservingScroll();
       return;
     }
@@ -2194,8 +2204,14 @@ function bindEvents() {
     const portfolioInstrumentForm = event.target.closest("[data-portfolio-instrument-edit-form]");
     const portfolioMipForm = event.target.closest("[data-portfolio-mip-edit-form]");
     const exitPhaseForm = event.target.closest("[data-exit-phase-edit-form]");
+    const profileForm = event.target.closest("[data-profile-form]");
     const monthlyTargetForm = event.target.closest("[data-monthly-target-edit-form]");
     const yearlyTargetForm = event.target.closest("[data-yearly-target-edit-form]");
+    if (profileForm) {
+      event.preventDefault();
+      saveProfile(profileForm);
+      return;
+    }
     if (monthlyTargetForm || yearlyTargetForm) {
       event.preventDefault();
       state.targetDetailEditing = false;
@@ -2992,6 +3008,7 @@ function render(options = {}) {
 	    portfolio: renderPortfolio,
 	    planning: renderPlanning,
 	    settings: renderSettings,
+      about: renderAbout,
 	  };
 
   elements.pageStage.innerHTML = `${(views[state.view] || renderOverview)()}${periodDetailsPanel()}`;
@@ -3077,6 +3094,12 @@ function topbarConfig() {
   if (state.view === "settings") {
     return {
       search: "Search settings, source truth, connections...",
+    };
+  }
+
+  if (state.view === "about") {
+    return {
+      search: "Search license, changelog, and contact...",
     };
   }
 
@@ -9590,13 +9613,13 @@ function renderSettings() {
 
 function settingsTabs() {
   const tabs = [
+    { id: "profile", label: "Profile" },
     { id: "project", label: "Project" },
     { id: "source", label: "Source Truth" },
     { id: "sync", label: "Data & Sync" },
     { id: "connections", label: "Connections" },
     { id: "thresholds", label: "Thresholds" },
     { id: "preferences", label: "Preferences" },
-    { id: "about", label: "About" },
   ];
   return `
     <nav class="transaction-tabs settings-tabs" aria-label="Settings sections">
@@ -9613,23 +9636,26 @@ function settingsTabs() {
 }
 
 function settingsDashboard(context = {}) {
-  const view = state.settingsView || "project";
+  const view = state.settingsView || "profile";
+  if (view === "profile") return settingsProfileDashboard();
   if (view === "source") return settingsSourceTruthDashboard(context);
   if (view === "sync") return settingsSyncDashboard();
   if (view === "connections") return settingsConnectionsDashboard(context);
   if (view === "thresholds") return settingsThresholdsDashboard();
   if (view === "preferences") return settingsPreferencesDashboard();
-  if (view === "about") return settingsAboutDashboard();
   return settingsProjectDashboard(context);
 }
 
-function settingsAboutDashboard() {
+function renderAbout() {
   return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("About", `
-        ${settingsAboutTabs()}
-        ${state.aboutView === "changelog" ? settingsChangelogPanel() : settingsCopyrightPanel()}
-      `)}
+    <section class="transactions-head settings-head">
+      <h1>About</h1>
+    </section>
+    ${settingsAboutTabs()}
+    <section class="settings-page">
+      ${settingsCardGrid([
+        settingsCard(state.aboutView === "changelog" ? "Changelog" : "Copyright & License", state.aboutView === "changelog" ? settingsChangelogPanel() : settingsCopyrightPanel()),
+      ], "settings-card-grid-single")}
     </section>
   `;
 }
@@ -9658,18 +9684,17 @@ function settingsCopyrightPanel() {
   return settingsRows([
     ["Product", "Ledger", "Personal finance workspace for source-truth review, portfolio planning, and reporting."],
     ["Copyright", `Copyright (c) ${currentYear} Alexandru Cornea. All rights reserved.`, "Ownership and notices apply to the application, documentation, and distributed assets unless separately stated."],
-    ["Contact", "contact@alexandru-cornea.com", "Use this address for support, licensing, security disclosures, and permission requests."],
+    {
+      label: "Contact",
+      valueHtml: '<a class="settings-row-link" href="mailto:contact@alexandru-cornea.com">contact@alexandru-cornea.com</a>',
+      note: "Use this address for support, licensing, security disclosures, and permission requests.",
+    },
     ["License", "Repository license controls use", "If a LICENSE file or written agreement is provided, that license governs. Otherwise, no rights are granted beyond personal evaluation or internal use expressly permitted by the owner."],
     ["Public Package", "User-owned data model", "Ledger Public is distributed without private data or credentials. Users are responsible for their own Google Sheet, service-account file, backups, and access controls."],
     ["Disclaimer", "No financial advice", "Information generated by Ledger is for recordkeeping and planning support only. It is not investment, tax, legal, accounting, or financial advice."],
     ["Warranty", "Provided as is", "The software is provided without warranties of merchantability, fitness for a particular purpose, accuracy, availability, or non-infringement, to the maximum extent permitted by law."],
     ["Third-party Services", "Separate terms apply", "Google Sheets, market-data providers, libraries, brokers, banks, and other connected services remain governed by their own terms and privacy policies."],
-  ], `
-    <a class="small-button" href="mailto:contact@alexandru-cornea.com">
-      <span data-icon="mail"></span>
-      <span>Contact</span>
-    </a>
-  `);
+  ]);
 }
 
 function settingsChangelogPanel() {
@@ -9680,35 +9705,99 @@ function settingsChangelogPanel() {
   return `
     <div class="settings-changelog-head">
       <span>Source: ${safe(changelog.source || "CHANGELOG.md")}</span>
-      <a class="small-button" href="/CHANGELOG.md" target="_blank" rel="noopener">
-        <span data-icon="externalLink"></span>
-        <span>Open Markdown</span>
-      </a>
     </div>
     ${markdownDocument(body)}
   `;
 }
 
-function settingsProjectDashboard({ accounts = {}, netWorth = 0, projectCurrency = "EUR", stats = [], transactions = {} } = {}) {
-  const sourceRows = stats.reduce((total, item) => total + numericValue(item.rows), 0);
+function settingsProfileDashboard() {
+  return settingsCardGrid([
+    settingsCard("Profile", settingsProfileForm()),
+  ], "settings-card-grid-single settings-card-grid-profile");
+}
+
+function settingsProfileForm() {
+  if (state.loading.profile && !state.profile) return loadingState("Loading profile");
+  if (state.error.profile && !state.profile) return errorState("Profile", state.error.profile);
+  const profile = state.profile?.profile || {};
+  const updated = profile.updated_at ? profile.updated_at.replace("T", " ").replace("Z", " UTC") : "Not saved";
+  const status = state.profileActionError
+    ? `<p class="inline-status is-error">${safe(state.profileActionError)}</p>`
+    : state.profileActionMessage
+      ? `<p class="inline-status">${safe(state.profileActionMessage)}</p>`
+      : "";
   return `
-    <section class="settings-layout settings-layout-two">
-      ${panel("Project", settingsProjectRows(accounts))}
-      ${panel("Project Snapshot", settingsRows([
-        ["Current Net Worth", formatWholeCurrency(netWorth, projectCurrency, { project: false }), "selected project currency"],
-        ["Source Rows", formatNumber(sourceRows), "live registers"],
-        ["Open Review", formatNumber(transactions.review_open ?? transactions.review_required ?? 0), "transactions"],
-      ]))}
-    </section>
+    <form class="settings-profile-form" data-profile-form>
+      <div class="settings-field-grid">
+        ${settingsProfileInput("name", "Name", profile.name || "", "text", "given-name")}
+        ${settingsProfileInput("surname", "Surname", profile.surname || "", "text", "family-name")}
+        ${settingsProfileInput("username", "Username", profile.username || "", "text", "username")}
+        ${settingsProfileInput("email", "Email", profile.email || "", "email", "email")}
+        ${settingsProfileInput("password", "Password", "", "password", "new-password", profile.has_password ? "Password set" : "New password")}
+      </div>
+      <div class="settings-profile-meta">
+        <span>Password: ${profile.has_password ? "Set" : "Not set"}</span>
+        <span>Updated: ${safe(updated)}</span>
+      </div>
+      <footer class="settings-actions settings-profile-actions">
+        <button class="small-button" type="submit" ${state.loading.profile ? "disabled" : ""}>
+          <span data-icon="save"></span>
+          <span>${state.loading.profile ? "Saving" : "Save profile"}</span>
+        </button>
+        ${status}
+      </footer>
+    </form>
   `;
 }
 
-function settingsSourceTruthDashboard({ stats = [] } = {}) {
+function settingsProfileInput(name, label, value = "", type = "text", autocomplete = "off", placeholder = "") {
   return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("Source Truth", settingsRegisterList(stats))}
-    </section>
+    <label>
+      <span>${safe(label)}</span>
+      <input
+        name="${safe(name)}"
+        type="${safe(type)}"
+        value="${safe(value)}"
+        autocomplete="${safe(autocomplete)}"
+        ${placeholder ? `placeholder="${safe(placeholder)}"` : ""}
+      />
+    </label>
   `;
+}
+
+function settingsCardGrid(cards, className = "") {
+  return `<section class="settings-card-grid ${safe(className)}">${cards.join("")}</section>`;
+}
+
+function settingsCard(title, body, actions = "") {
+  const icon = panelIcon(title);
+  return `
+    <article class="settings-card">
+      <header class="settings-card-head">
+        <h2>${icon ? `<span class="panel-title-icon" aria-hidden="true">${icons[icon]}</span>` : ""}<span>${safe(title)}</span></h2>
+        ${actions ? `<div class="panel-actions">${actions}</div>` : ""}
+      </header>
+      ${body}
+    </article>
+  `;
+}
+
+function settingsProjectDashboard({ accounts = {}, netWorth = 0, projectCurrency = "EUR", stats = [], transactions = {} } = {}) {
+  const sourceRows = stats.reduce((total, item) => total + numericValue(item.rows), 0);
+  return settingsCardGrid([
+    settingsCard("Project", settingsProjectRows(accounts)),
+    settingsCard("Project Snapshot", settingsRows([
+        ["Current Net Worth", formatWholeCurrency(netWorth, projectCurrency, { project: false }), "selected project currency"],
+        ["Source Rows", formatNumber(sourceRows), "live registers"],
+        ["Open Review", formatNumber(transactions.review_open ?? transactions.review_required ?? 0), "transactions"],
+      ])),
+  ], "settings-card-grid-two");
+}
+
+function settingsSourceTruthDashboard({ stats = [] } = {}) {
+  return settingsCardGrid([
+    settingsCard("Source Truth", settingsRegisterList(stats)),
+  ], "settings-card-grid-single");
 }
 
 function settingsSyncDashboard() {
@@ -9730,46 +9819,38 @@ function settingsSyncDashboard() {
   const snapshotNote = snapshot.spreadsheet_id
     ? `Sheet ${snapshot.spreadsheet_id}`
     : snapshot.path || "Active store is configured at startup.";
-  return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("Data & Sync", settingsRows([
+  return settingsCardGrid([
+    settingsCard("Data & Sync", settingsRows([
         ["Refresh policy", "Manual refresh", "Use the sidebar refresh when Google Sheets changes."],
         ["Memory cache", `${formatNumber(memorySheets)} sheets`, `TTL ${formatNumber(cache.ttl_seconds || 0)} seconds.`],
         ["Snapshot cache", snapshotLabel, snapshotNote],
         ["Data health", healthValue, healthNote],
         ["Imports", "Local attachments", "Statements are linked to transactions and preserved in the project."],
         ["Portfolio instruments", "Manual values refresh", "Updates active instrument prices and brokerage account investment totals."],
-      ], settingsSyncActions()))}
-    </section>
-  `;
+      ], settingsSyncActions())),
+  ], "settings-card-grid-single");
 }
 
 function settingsConnectionsDashboard({ connections = [] } = {}) {
-  return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("Connections", settingsConnectionList(connections))}
-    </section>
-  `;
+  return settingsCardGrid([
+    settingsCard("Connections", settingsConnectionList(connections)),
+  ], "settings-card-grid-single");
 }
 
 function settingsThresholdsDashboard() {
-  return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("Intelligence Thresholds", settingsThresholdControls())}
-    </section>
-  `;
+  return settingsCardGrid([
+    settingsCard("Intelligence Thresholds", settingsThresholdControls()),
+  ], "settings-card-grid-single");
 }
 
 function settingsPreferencesDashboard() {
-  return `
-    <section class="settings-layout settings-layout-single">
-      ${panel("Preferences", settingsRows([
+  return settingsCardGrid([
+    settingsCard("Preferences", settingsRows([
         ["Theme", document.documentElement.dataset.theme === "dark" ? "Dark" : "Light", "Toggle from the sidebar."],
         ["Reporting period", periodValueLabel(), "Controls Overview and default Transactions scope."],
         ["Manual entries", "Review required", "New and duplicated transactions are kept visible for review."],
-      ]))}
-    </section>
-  `;
+      ])),
+  ], "settings-card-grid-single");
 }
 
 function settingsProjectRows(accounts = {}) {
@@ -9998,12 +10079,15 @@ function panelIcon(title) {
     "Import Queue": "receipt",
     "Unsupported Files": "fileText",
     "Project": "settings",
+    "Profile": "user",
     "Project Snapshot": "target",
     "Source Truth": "database",
     "Connections": "plug",
     "Data & Sync": "refresh",
     "Intelligence Thresholds": "target",
     "Preferences": "settings",
+    "Copyright & License": "info",
+    "Changelog": "fileText",
     "Accounts Loading": "wallet",
     "Accounts": "wallet",
     "Transactions Loading": "receipt",
@@ -15131,7 +15215,10 @@ async function loadDataForView() {
   if (state.view === "settings") {
     if (!overviewHasScope("summary")) await loadOverview({ scope: "summary" });
     await loadSettingsDiagnostics();
-    if (state.settingsView === "about") await loadAboutChangelog();
+    if (state.settingsView === "profile") await loadProfile();
+  }
+  if (state.view === "about") {
+    if (state.aboutView === "changelog") await loadAboutChangelog();
   }
   if (state.view === "portfolio" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
   if (state.view === "planning" && !overviewHasScope("full")) await loadOverview({ scope: "full" });
@@ -15169,6 +15256,27 @@ async function loadSettingsDiagnostics(options = {}) {
   } finally {
     if (requestId !== settingsDiagnosticsRequestId) return;
     state.loading.settingsDiagnostics = false;
+    render();
+  }
+}
+
+async function loadProfile(options = {}) {
+  if (state.loading.profile) return;
+  if (state.profile && !options.force) return;
+  const requestId = ++profileRequestId;
+  state.loading.profile = true;
+  state.error.profile = "";
+  render();
+  try {
+    const data = await fetchJson("/api/profile");
+    if (requestId !== profileRequestId) return;
+    state.profile = data;
+  } catch (error) {
+    if (requestId !== profileRequestId) return;
+    state.error.profile = friendlyFetchError(error);
+  } finally {
+    if (requestId !== profileRequestId) return;
+    state.loading.profile = false;
     render();
   }
 }
@@ -15926,6 +16034,29 @@ async function saveAccount(form) {
   } catch (error) {
     state.accountActionError = friendlyActionError(error, "Unable to save account.");
     render();
+  }
+}
+
+async function saveProfile(form) {
+  const values = Object.fromEntries(new FormData(form).entries());
+  if (!String(values.password || "").trim()) delete values.password;
+  state.profileActionError = "";
+  state.profileActionMessage = "";
+  state.loading.profile = true;
+  renderPreservingScroll();
+  try {
+    const result = await fetchJson("/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ values }),
+    });
+    state.profile = result;
+    state.profileActionMessage = "Profile saved.";
+    form.reset();
+  } catch (error) {
+    state.profileActionError = friendlyActionError(error, "Unable to save profile.");
+  } finally {
+    state.loading.profile = false;
+    renderPreservingScroll();
   }
 }
 

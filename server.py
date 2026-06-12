@@ -19,12 +19,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from ledger_core.auth import AuthManager
 from ledger_core.backups import backup_local_data
 from ledger_core.fx import DEFAULT_CONVERTER, DEFAULT_RATES_TO_EUR, SUPPORTED_CONVERSION_CURRENCIES, normalize_currency as core_normalize_currency
 from ledger_core.google_sheets import GoogleSheetsConfig, GoogleSheetsLedgerStore
 from ledger_core.health import data_health_summary
 from ledger_core.local_csv import LocalCsvLedgerStore
+from ledger_core.profile import ProfileStore
 from ledger_core.reports import report_presets
 from ledger_core.schemas import SHEETS as CORE_SHEETS
 
@@ -190,7 +190,7 @@ STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
 STORE_MODE = "google"
 STORE_DETAILS: dict[str, str] = {}
 PROJECT_CURRENCY = "EUR"
-AUTH = AuthManager(ROOT)
+PROFILE = ProfileStore(ROOT)
 
 
 def money(value: float) -> float:
@@ -1532,8 +1532,6 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self) -> None:
-        if not self.ensure_authenticated():
-            return
         parsed = urlparse(self.path)
         params = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         try:
@@ -1555,6 +1553,8 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
                 return self.send_json(public_data_health())
             if parsed.path == "/api/report-presets":
                 return self.send_json({"ok": True, "rows": report_presets()})
+            if parsed.path == "/api/profile":
+                return self.send_json(PROFILE.read())
             if parsed.path == "/api/about/changelog":
                 return self.send_json(read_changelog_payload())
             if parsed.path == "/CHANGELOG.md":
@@ -1573,8 +1573,6 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": str(error)}, status=500)
 
     def do_POST(self) -> None:
-        if not self.ensure_authenticated():
-            return
         parsed = urlparse(self.path)
         try:
             if parsed.path == "/api/statements/import/upload":
@@ -1632,11 +1630,11 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": str(error)}, status=400)
 
     def do_PATCH(self) -> None:
-        if not self.ensure_authenticated():
-            return
         parsed = urlparse(self.path)
         values = self.values_payload()
         try:
+            if parsed.path == "/api/profile":
+                return self.send_json(PROFILE.update(values))
             if parsed.path.startswith("/api/accounts/"):
                 row_id = unquote(parsed.path.removeprefix("/api/accounts/").strip("/"))
                 row = upsert_row("accounts_register", "account_id", row_id, values)
@@ -1668,8 +1666,6 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": False, "error": str(error)}, status=400)
 
     def do_DELETE(self) -> None:
-        if not self.ensure_authenticated():
-            return
         parsed = urlparse(self.path)
         try:
             if parsed.path == "/api/accounts":
@@ -1742,23 +1738,6 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
             return ""
         value = path[len(prefix) : -len(suffix)].strip("/")
         return unquote(value) if value and "/" not in value else ""
-
-    def ensure_authenticated(self) -> bool:
-        if AUTH.verify_header(self.headers.get("Authorization")):
-            return True
-        self.send_auth_required()
-        return False
-
-    def send_auth_required(self) -> None:
-        body = b"Authentication required.\n"
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", f'Basic realm="{AUTH.realm()}", charset="UTF-8"')
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(body)
 
     def send_json(self, payload: dict, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")

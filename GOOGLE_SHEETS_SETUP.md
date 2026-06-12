@@ -49,7 +49,6 @@ Or run manually:
 ```bash
 python3 -m pip install -r requirements-google.txt
 python3 scripts/setup_google.py
-python3 scripts/setup_auth.py --app-name "Ledger Public"
 ```
 
 The wizard writes `.env` once:
@@ -62,7 +61,7 @@ LEDGER_PROJECT_CURRENCY=EUR
 ```
 
 The wizard asks for Project Currency during setup. Supported values are EUR, USD, AED, RON, GBP, CHF, CAD, AUD, INR, and JPY.
-The launcher also asks for a local browser username/password once. That password protects the local Ledger web app and is stored only as a hash in `.ledger_auth.json`.
+Profile details are managed later in Settings > Profile and stored locally in `.ledger_profile.json`.
 
 ## 5. Start Ledger
 

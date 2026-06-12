@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 .ledger_auth.json
+.ledger_profile.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
