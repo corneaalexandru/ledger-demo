@@ -6223,12 +6223,16 @@ table.portfolio-table td:nth-child(7) {
 }
 
 .statement-frame {
+  display: block;
   width: 100%;
-  min-height: 64vh;
+  height: 66vh;
+  min-height: 420px;
+  max-height: 760px;
   margin-top: 16px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-2);
+  pointer-events: none;
 }
 
 .drawer-actions {
@@ -6305,6 +6309,10 @@ table.portfolio-table td:nth-child(7) {
   .drawer-actions {
     margin-inline: -18px;
     padding-inline: 18px;
+  }
+
+  .statement-frame {
+    min-height: 320px;
   }
 }
 

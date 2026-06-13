@@ -14794,7 +14794,7 @@ function statementPreview(preview, data) {
     `;
   }
   if (String(data.content_type || "").includes("pdf") && data.file_url) {
-    return `<iframe class="statement-frame" src="${safe(data.file_url)}" title="Imported statement source"></iframe>`;
+    return `<iframe class="statement-frame" src="${safe(data.file_url)}" title="Imported statement source preview" tabindex="-1" loading="lazy"></iframe>`;
   }
   return `<p class="drawer-note">Preview is not available for this file type. Open the source file to inspect it.</p>`;
 }

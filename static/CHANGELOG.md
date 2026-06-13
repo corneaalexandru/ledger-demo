@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Prevented imported statement PDF previews from trapping scroll inside transaction drawers.
 - Changed account and transaction country edit fields to plain two-letter country-code inputs without browser/datalist autofill suggestions.
 - Kept scroll position inside register tables when opening or closing detail drawers from any row.
 - Improved print/PDF output with landscape A4 layout, compact matching typography, fitted tables, and cleaner print headers.
