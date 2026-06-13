@@ -11,10 +11,8 @@ import sys
 import tempfile
 import threading
 import webbrowser
-import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from html import escape as html_escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -33,9 +31,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 CHANGELOG_PATH = ROOT / "CHANGELOG.md"
 DATA_DIR = ROOT / "local_ledger_data"
-WORKBOOK_PATH = ROOT / "local_ledger_workbook.xlsx"
 LEGACY_DATA_DIR = ROOT / "mock_google_sheet"
-LEGACY_WORKBOOK_PATH = ROOT / "mock_ledger_google_sheet.xlsx"
 SHEET_DIR = DATA_DIR
 TODAY = date(2026, 6, 10)
 
@@ -59,6 +55,7 @@ ACCOUNTS_HEADERS = [
     "account_status",
     "capital_bucket",
     "account_type",
+    "country_code",
     "account_currency",
     "balance_native",
     "amount_eur_converted",
@@ -68,7 +65,6 @@ ACCOUNTS_HEADERS = [
     "ledger_status",
     "review_status",
     "notes",
-    "country_code",
 ]
 
 TRANSACTIONS_HEADERS = [
@@ -302,8 +298,6 @@ def migrate_legacy_data_paths() -> None:
         if DATA_DIR.exists():
             DATA_DIR.rmdir()
         LEGACY_DATA_DIR.rename(DATA_DIR)
-    if LEGACY_WORKBOOK_PATH.exists() and not WORKBOOK_PATH.exists():
-        LEGACY_WORKBOOK_PATH.rename(WORKBOOK_PATH)
 
 
 def rows_path(sheet_name: str) -> Path:
@@ -322,8 +316,6 @@ def write_rows(sheet_name: str, rows: list[dict]) -> None:
         migrate_legacy_data_paths()
         SHEET_DIR.mkdir(parents=True, exist_ok=True)
     STORE.write_rows(sheet_name, rows)
-    if STORE_MODE == "local":
-        write_local_workbook()
 
 
 def normalize_row(sheet_name: str, row: dict) -> dict:
@@ -812,111 +804,6 @@ def ensure_local_data(reset: bool = False) -> None:
     for sheet_name, factory in defaults.items():
         if reset or not rows_path(sheet_name).exists():
             write_rows(sheet_name, factory())
-    write_local_workbook()
-
-
-def column_letter(index: int) -> str:
-    letters = ""
-    while index:
-        index, remainder = divmod(index - 1, 26)
-        letters = chr(65 + remainder) + letters
-    return letters or "A"
-
-
-def xml_cell(value, row_index: int, col_index: int) -> str:
-    ref = f"{column_letter(col_index)}{row_index}"
-    text = "" if value is None else str(value)
-    if re.fullmatch(r"-?\d+(\.\d+)?", text):
-        return f'<c r="{ref}"><v>{text}</v></c>'
-    return f'<c r="{ref}" t="inlineStr"><is><t>{html_escape(text)}</t></is></c>'
-
-
-def worksheet_xml(headers: list[str], rows: list[dict]) -> str:
-    sheet_rows = []
-    all_rows = [dict(zip(headers, headers)), *rows]
-    for row_index, row in enumerate(all_rows, start=1):
-        cells = "".join(xml_cell(row.get(header, ""), row_index, col_index) for col_index, header in enumerate(headers, start=1))
-        sheet_rows.append(f'<row r="{row_index}">{cells}</row>')
-    return (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        f"<sheetData>{''.join(sheet_rows)}</sheetData></worksheet>"
-    )
-
-
-WORKBOOK_ZIP_TIMESTAMP = (2026, 6, 10, 0, 0, 0)
-
-
-def write_workbook_part(zf: zipfile.ZipFile, path: str, content: str) -> None:
-    info = zipfile.ZipInfo(path, WORKBOOK_ZIP_TIMESTAMP)
-    info.compress_type = zipfile.ZIP_DEFLATED
-    info.external_attr = 0o644 << 16
-    zf.writestr(info, content)
-
-
-def write_workbook(path: Path, workbook_sheets: dict[str, tuple[list[str], list[dict]]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    sheet_names = list(workbook_sheets)
-    with zipfile.ZipFile(path, "w") as zf:
-        write_workbook_part(
-            zf,
-            "[Content_Types].xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-            '<Default Extension="xml" ContentType="application/xml"/>'
-            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-            + "".join(
-                f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-                for i in range(1, len(sheet_names) + 1)
-            )
-            + "</Types>",
-        )
-        write_workbook_part(
-            zf,
-            "_rels/.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-            "</Relationships>",
-        )
-        write_workbook_part(
-            zf,
-            "xl/workbook.xml",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            "<sheets>"
-            + "".join(
-                f'<sheet name="{html_escape(name[:31])}" sheetId="{i}" r:id="rId{i}"/>'
-                for i, name in enumerate(sheet_names, start=1)
-            )
-            + "</sheets></workbook>",
-        )
-        write_workbook_part(
-            zf,
-            "xl/_rels/workbook.xml.rels",
-            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-            + "".join(
-                f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
-                for i in range(1, len(sheet_names) + 1)
-            )
-            + "</Relationships>",
-        )
-        for i, sheet_name in enumerate(sheet_names, start=1):
-            headers, rows = workbook_sheets[sheet_name]
-            write_workbook_part(zf, f"xl/worksheets/sheet{i}.xml", worksheet_xml(headers, rows))
-
-
-def write_local_workbook() -> None:
-    migrate_legacy_data_paths()
-    SHEET_DIR.mkdir(parents=True, exist_ok=True)
-    write_workbook(
-        WORKBOOK_PATH,
-        {sheet_name: (headers, read_rows(sheet_name)) for sheet_name, headers in SHEETS.items()},
-    )
 
 
 def active_rows(rows: list[dict]) -> list[dict]:
@@ -1566,7 +1453,6 @@ class LedgerPublicHandler(BaseHTTPRequestHandler):
             if parsed.path == "/CHANGELOG.md":
                 return self.send_bytes(read_changelog_text().encode("utf-8"), "text/markdown; charset=utf-8", "CHANGELOG.md")
             if parsed.path == "/api/refresh":
-                write_local_workbook()
                 return self.send_json({"ok": True, "refreshed": True})
             tx_id = self.path_id(parsed.path, "/api/transactions/", "/statement/file")
             if tx_id:
@@ -1834,14 +1720,14 @@ def public_health() -> dict:
             }
         )
     else:
-        payload["workbook"] = str(WORKBOOK_PATH.name)
+        payload["data_dir"] = str(DATA_DIR.name)
     return payload
 
 
 def public_cache_status() -> dict:
     if STORE_MODE == "local":
         migrate_legacy_data_paths()
-        snapshot = {"path": str(WORKBOOK_PATH), "mode": "local_workbook"}
+        snapshot = {"path": str(DATA_DIR), "mode": "local_csv"}
     else:
         snapshot = {"spreadsheet_id": STORE_DETAILS.get("spreadsheet_id", ""), "mode": "google_sheets"}
     return {
@@ -1967,7 +1853,7 @@ def configure_store(args: argparse.Namespace, env: dict[str, str]) -> None:
     if mode == "local":
         STORE = LocalCsvLedgerStore(DATA_DIR, sheets=SHEETS, fx=DEFAULT_CONVERTER)
         STORE_MODE = "local"
-        STORE_DETAILS = {"data_dir": str(DATA_DIR), "workbook": str(WORKBOOK_PATH)}
+        STORE_DETAILS = {"data_dir": str(DATA_DIR)}
         return
 
     spreadsheet_id = args.spreadsheet_id or env_setting(env, "LEDGER_SPREADSHEET_ID")
@@ -2002,7 +1888,7 @@ def run_server(port: int, host: str, open_browser: bool = False) -> None:
     if STORE_MODE == "google":
         print(f"Google Sheet: {STORE_DETAILS.get('spreadsheet_id', '')}")
     else:
-        print(f"Local ledger workbook: {WORKBOOK_PATH}")
+        print(f"Local CSV data: {DATA_DIR}")
     print("Press Ctrl+C to stop the local server.")
     server.serve_forever()
 
@@ -2042,7 +1928,7 @@ def main() -> None:
             else:
                 print(f"Google Sheets configuration ready: {STORE_DETAILS.get('spreadsheet_id', '')}")
         else:
-            print(f"Local ledger workbook created at {WORKBOOK_PATH}")
+            print(f"Local CSV data ready at {DATA_DIR}")
         return
     run_server(args.port, args.host, open_browser=args.open)
 

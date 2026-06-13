@@ -4,6 +4,10 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Expanded Financial Health scoring with retained-capital shortfall, ledger leakage, and compounding deficit inputs.
+- Matched Portfolio quick filters to register behavior with removable chips for portfolio, provider, ticker, and funding fields.
+- Moved the shared account `country_code` schema next to account type so native Google Sheets expose Country in the expected place.
+- Removed the legacy local XLSX writer so Ledger Public no longer generates workbook files; native Google Sheets is the supported setup path.
 - Labeled the Settings content as the General settings subpage under the page header.
 - Replaced the public XLSX starter workflow with native Google Sheet setup that creates and seeds tabs directly.
 - Seeded account country codes in the public starter rows so the Accounts Country column is populated immediately.

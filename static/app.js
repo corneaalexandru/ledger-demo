@@ -148,6 +148,7 @@ const state = {
   selectedPortfolioMipEditing: false,
   portfolioMipOverrides: {},
   portfolioMipActionError: "",
+  portfolioFilters: defaultPortfolioFilters(),
   profileActionMessage: "",
   profileActionError: "",
   selectedExitPhaseId: "",
@@ -205,6 +206,7 @@ const state = {
     accounts: {},
     transactions: {},
     trades: {},
+    portfolio: {},
   },
 };
 
@@ -2647,6 +2649,21 @@ function applyStructuredQuickFilter(field, value) {
     };
   }
 
+  if (state.view === "portfolio") {
+    if (Object.prototype.hasOwnProperty.call(state.portfolioFilters, filterField)) {
+      state.portfolioFilters[filterField] = filterValue;
+    } else {
+      return false;
+    }
+    resetPortfolioDetailState();
+    render();
+    return {
+      view: "portfolio",
+      field: filterField,
+      value: filterValue,
+    };
+  }
+
   return false;
 }
 
@@ -2711,7 +2728,7 @@ function transactionDateChipFields() {
 }
 
 function quickFilterRegisterView(view = state.view) {
-  return ["accounts", "transactions", "trades"].includes(view) ? view : "";
+  return ["accounts", "transactions", "trades", "portfolio"].includes(view) ? view : "";
 }
 
 function setQuickFilterChip(view, field, value, label = value) {
@@ -2798,6 +2815,7 @@ function quickFilterMatchesState(view, chip = {}) {
   }
   if (view === "accounts") return String(state.accountFilters[field] || "") === value;
   if (view === "trades") return String(state.tradeFilters[field] || "") === value;
+  if (view === "portfolio") return String(state.portfolioFilters[field] || "") === value;
   return false;
 }
 
@@ -2809,6 +2827,7 @@ function registerFilterState(view) {
   }
   if (view === "accounts") return state.accountFilters || {};
   if (view === "trades") return state.tradeFilters || {};
+  if (view === "portfolio") return state.portfolioFilters || {};
   return {};
 }
 
@@ -2864,7 +2883,31 @@ function quickFilterFieldLabel(view, field) {
     };
     if (labels[field]) return labels[field];
   }
-  const fields = view === "accounts" ? accountFields : view === "trades" ? tradeFields : transactionFields;
+  if (view === "portfolio") {
+    const labels = {
+      portfolio_id: "Portfolio",
+      portfolio_name: "Portfolio",
+      provider: "Provider",
+      ticker: "Ticker",
+      asset_name: "Instrument",
+      asset_class: "Class",
+      asset_bucket: "Bucket",
+      exchange: "Exchange",
+      isin: "ISIN",
+      base_currency: "Currency",
+      current_value_currency: "Currency",
+      contribution_type: "Contribution",
+      contribution_role: "Role",
+    };
+    if (labels[field]) return labels[field];
+  }
+  const fields = view === "accounts"
+    ? accountFields
+    : view === "trades"
+      ? tradeFields
+      : view === "portfolio"
+        ? portfolioInstrumentFields
+        : transactionFields;
   const match = fields.find(([key]) => key === field);
   return match ? match[1] : labelize(field);
 }
@@ -2886,6 +2929,7 @@ function quickFilterIcon(field) {
   if (field === "statement_currency" || field === "account_currency" || field === "trade_currency") return "currency";
   if (field === "category_id" || field === "subcategory_id" || field === "instrument_type" || field === "account_type") return "pie";
   if (field === "source_system" || field === "provider_id" || field === "account_id" || field === "portfolio_id") return "wallet";
+  if (field === "provider" || field === "portfolio_name") return "wallet";
   return "filter";
 }
 
@@ -2923,6 +2967,10 @@ function clearQuickFilterField(view, field) {
   }
   if (view === "trades" && Object.prototype.hasOwnProperty.call(state.tradeFilters, field)) {
     state.tradeFilters[field] = "";
+    return;
+  }
+  if (view === "portfolio" && Object.prototype.hasOwnProperty.call(state.portfolioFilters, field)) {
+    state.portfolioFilters[field] = "";
   }
 }
 
@@ -2966,6 +3014,11 @@ function reloadQuickFilterView(view) {
     state.selectedTradeEditing = false;
     state.tradeActionError = "";
     loadTrades();
+    return;
+  }
+  if (view === "portfolio") {
+    resetPortfolioDetailState();
+    render();
   }
 }
 
@@ -4560,7 +4613,7 @@ function defaultPortfolioMipValues() {
 function portfolioDashboard(portfolio = {}) {
   const rawInstruments = currentPortfolioInstrumentRows(portfolio);
   const mipRows = currentPortfolioMipRows(portfolio);
-  const queryActive = Boolean(state.query.trim());
+  const queryActive = portfolioFilterActive();
   const instruments = filteredPortfolioInstrumentRows(rawInstruments);
   const filteredMipRows = queryActive ? portfolioMipRowsForVisibleInstruments(mipRows, instruments) : mipRows;
   const summary = portfolioSummaryFromRows(portfolio.summary || {}, instruments, filteredMipRows);
@@ -4580,7 +4633,7 @@ function portfolioDashboard(portfolio = {}) {
 
 function portfolioTreemapDashboard(portfolio = {}) {
   const rawInstruments = currentPortfolioInstrumentRows(portfolio);
-  const queryActive = Boolean(state.query.trim());
+  const queryActive = portfolioFilterActive();
   const instruments = filteredPortfolioInstrumentRows(rawInstruments);
   const mipRows = currentPortfolioMipRows(portfolio);
   const summary = portfolioSummaryFromRows(portfolio.summary || {}, instruments, queryActive ? portfolioMipRowsForVisibleInstruments(mipRows, instruments) : mipRows);
@@ -4626,7 +4679,7 @@ function portfolioPortfolioPerformanceDashboard(portfolio = {}) {
   const performance = portfolio.performance || {};
   const rows = portfolioPerformanceByPortfolioRows(portfolio);
   const summary = portfolioPerformanceByPortfolioSummary(rows);
-  const queryActive = Boolean(state.query.trim());
+  const queryActive = portfolioFilterActive();
   return `
     <section class="transaction-metrics portfolio-metrics">
       ${transactionMetric("Current Value", formatWholeCurrency(summary.current_value_eur || 0, "EUR"), `${formatNumber(summary.portfolios || 0)} ${summary.portfolios === 1 ? "portfolio" : "portfolios"}${queryActive ? " shown" : ""}`)}
@@ -4649,7 +4702,7 @@ function portfolioPerformanceDashboard(portfolio = {}) {
   const summary = portfolioPerformanceSummary(rows, performance.summary || {});
   const monthlyRows = portfolioPerformanceMonthlyRows(performance, rows, summary);
   const windowedMonthlyRows = portfolioPerformanceVisibleMonthlyRows(monthlyRows);
-  const queryActive = Boolean(state.query.trim());
+  const queryActive = portfolioFilterActive();
   return `
     <section class="transaction-metrics portfolio-performance-metrics">
       ${transactionMetric("Paid In", formatWholeCurrency(summary.contributed_eur || 0, "EUR"), queryActive ? "filtered paid-in capital" : "reported paid-in capital")}
@@ -5419,9 +5472,10 @@ function filteredPortfolioPerformanceRows(rows = [], portfolio = {}) {
     ...row,
     label: portfolioPerformanceLabel(row, rows),
   }));
+  const filteredRows = applyPortfolioStructuredFilters(normalizedRows);
   return state.query.trim()
-    ? filterRows(normalizedRows, ["portfolio_id", "portfolio_name", "label", "provider", "contribution_type", "contribution_role"])
-    : normalizedRows;
+    ? filterRows(filteredRows, ["portfolio_id", "portfolio_name", "label", "provider", "contribution_type", "contribution_role"])
+    : filteredRows;
 }
 
 function portfolioPerformanceLabel(row = {}, rows = []) {
@@ -5772,14 +5826,14 @@ function portfolioPerformanceTable(rows = [], portfolio = {}) {
           ${rows.map((row) => `
             <tr>
               <td>
-	                <span class="table-main">${safe(portfolioPerformanceLabel(row, rows))}</span>
+	                <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, portfolioPerformanceLabel(row, rows), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
 	                <span class="table-sub">${[
-	                  displayPortfolioId(row.portfolio_id),
-	                  labelize(row.provider),
-	                  displayContributionType(row.contribution_type || "investment"),
-	                  labelize(row.contribution_role || "self"),
+	                  row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
+	                  row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
+	                  row.contribution_type ? quickFilterControl(row.contribution_type, displayContributionType(row.contribution_type || "investment"), { field: "contribution_type" }) : "",
+	                  row.contribution_role ? quickFilterControl(row.contribution_role, labelize(row.contribution_role || "self"), { field: "contribution_role" }) : "",
 	                  formatPlural(row.contribution_count || 0, "transfer"),
-                ].filter(Boolean).map(safe).join(" · ")}</span>
+                ].filter(Boolean).join(" · ")}</span>
               </td>
               <td class="align-right">
                 <span class="table-main">${formatWholeCurrency(row.contributed_eur || 0, "EUR")}</span>
@@ -5804,7 +5858,53 @@ function portfolioPerformanceTable(rows = [], portfolio = {}) {
 }
 
 function filteredPortfolioInstrumentRows(rows = []) {
-  return state.query.trim() ? filterRows(rows, portfolioInstrumentFilterFields()) : rows;
+  const filteredRows = applyPortfolioStructuredFilters(rows);
+  return state.query.trim() ? filterRows(filteredRows, portfolioInstrumentFilterFields()) : filteredRows;
+}
+
+function portfolioFilterActive() {
+  return Boolean(state.query.trim()) || Object.values(state.portfolioFilters || {}).some((value) => String(value || "").trim());
+}
+
+function applyPortfolioStructuredFilters(rows = []) {
+  const filters = state.portfolioFilters || {};
+  const activeFilters = Object.entries(filters).filter(([, value]) => String(value || "").trim());
+  if (!activeFilters.length) return rows;
+  return rows.filter((row) => activeFilters.every(([field, value]) => portfolioFilterMatches(row, field, value)));
+}
+
+function portfolioFilterMatches(row = {}, field = "", value = "") {
+  const expected = String(value || "").trim().toLowerCase();
+  if (!expected) return true;
+  const portfolioIdExpected = storedPortfolioId(value).toLowerCase();
+  const aliases = {
+    portfolio_id: ["portfolio_id", "portfolio_name", "label"],
+    portfolio_name: ["portfolio_name", "label", "portfolio_id"],
+    current_value_currency: ["current_value_currency", "base_currency"],
+    base_currency: ["base_currency", "current_value_currency"],
+  };
+  const fields = aliases[field] || [field];
+  const candidates = fields.flatMap((key) => portfolioFilterCandidates(row, key));
+  if (!candidates.length) return true;
+  return candidates.some((candidate) => {
+    const normalized = String(candidate || "").trim().toLowerCase();
+    return normalized === expected || normalized === portfolioIdExpected;
+  });
+}
+
+function portfolioFilterCandidates(row = {}, key = "") {
+  const raw = String(row[key] || "").trim();
+  if (!raw) return [];
+  if (key === "portfolio_id") {
+    return [raw, displayPortfolioId(raw), portfolioNameFromId(raw), portfolioReferenceLabel(raw)];
+  }
+  if (key === "portfolio_name") {
+    return [raw, storedPortfolioId(raw), displayPortfolioId(raw)];
+  }
+  if (key === "contribution_type") {
+    return [raw, displayContributionType(raw)];
+  }
+  return [raw, labelize(raw)];
 }
 
 function portfolioInstrumentFilterFields() {
@@ -5823,7 +5923,7 @@ function portfolioInstrumentFilterFields() {
 
 function portfolioMipRowsForVisibleInstruments(mipRows = [], visibleInstruments = []) {
   const visiblePortfolioIds = new Set(visibleInstruments.map((row) => String(row.portfolio_id || "").trim()).filter(Boolean));
-  const directMatches = filterRows(mipRows, portfolioMipFilterFields());
+  const directMatches = state.query.trim() ? filterRows(mipRows, portfolioMipFilterFields()) : [];
   const rowsById = new Map(directMatches.map((row) => [portfolioMipId(row), row]));
   mipRows.forEach((row) => {
     const portfolioId = String(row.portfolio_id || "").trim();
@@ -6078,7 +6178,7 @@ function portfolioPerformanceByPortfolioRows(portfolio = {}) {
   const rawInstruments = currentPortfolioInstrumentRows(portfolio);
   const instruments = filteredPortfolioInstrumentRows(rawInstruments);
   const mipRows = currentPortfolioMipRows(portfolio);
-  const queryActive = Boolean(state.query.trim());
+  const queryActive = portfolioFilterActive();
   const currentPhaseId = portfolio.summary?.current_phase_id || currentPortfolioPhaseId();
   const planById = new Map(mipRows.map((row) => [String(row.portfolio_id || ""), row]));
   const groups = new Map();
@@ -6630,12 +6730,12 @@ function portfolioPortfolioPerformanceTable(rows = []) {
           ${rows.map((row) => `
             <tr>
               <td>
-                <span class="table-main">${safe(portfolioScopeLabel(row, rows))}</span>
+                <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, portfolioScopeLabel(row, rows), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
                 <span class="table-sub">${[
-                  displayPortfolioId(row.portfolio_id),
-                  labelize(row.provider),
+                  row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
+                  row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
                   formatPlural(row.instrument_count || 0, "instrument"),
-                ].filter(Boolean).map(safe).join(" · ")}</span>
+                ].filter(Boolean).join(" · ")}</span>
               </td>
               <td class="align-right">
                 <span class="table-main">${formatWholeCurrency(row.current_value_eur || 0, "EUR")}</span>
@@ -6727,7 +6827,7 @@ function portfolioInstrumentTable(rows = []) {
               </td>
               <td class="portfolio-instrument-cell">${portfolioInstrumentNameCell(row)}</td>
 	              <td class="portfolio-book-cell">
-		                <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, row.portfolio_name || displayPortfolioId(row.portfolio_id))}</span>
+		                <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, row.portfolio_name || displayPortfolioId(row.portfolio_id), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
 		                <span class="table-sub">${portfolioMetaLine(row)}</span>
 		              </td>
 	              <td class="portfolio-current-value-cell align-right">
@@ -6889,14 +6989,14 @@ function portfolioMipTable(rows = [], phases = []) {
             return `
 	              <tr class="clickable-row ${state.selectedPortfolioMipId === id ? "is-selected" : ""}" data-action="open-portfolio-mip" data-portfolio-mip-id="${safe(id)}" tabindex="0">
 		                <td>
-		                  <span class="table-main">${safe(row.portfolio_name || displayPortfolioId(row.portfolio_id))}</span>
+		                  <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, row.portfolio_name || displayPortfolioId(row.portfolio_id), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
 		                  <span class="table-sub">${[
-	                        displayPortfolioId(row.portfolio_id),
-	                        labelize(row.provider),
-	                        displayContributionType(row.contribution_type || "investment"),
-	                        labelize(row.contribution_role || "self"),
+	                        row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
+	                        row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
+	                        row.contribution_type ? quickFilterControl(row.contribution_type, displayContributionType(row.contribution_type || "investment"), { field: "contribution_type" }) : "",
+	                        row.contribution_role ? quickFilterControl(row.contribution_role, labelize(row.contribution_role || "self"), { field: "contribution_role" }) : "",
 	                        formatPlural(row.instrument_count || 0, "instrument"),
-                      ].filter(Boolean).map(safe).join(" · ")}</span>
+                      ].filter(Boolean).join(" · ")}</span>
 	                </td>
 	                <td>
 	                  <span class="table-main">${formatDisplayDate(row.start_date)} - ${formatDisplayDate(row.portfolio_exit_date)}</span>
@@ -10585,7 +10685,7 @@ function financialHealthScoreCard(accounts = {}, transactions = {}, trades = {},
     "Financial Health",
     `${assessment.score}/100`,
     `${assessment.grade} · ${assessment.weakest.label} ${assessment.weakest.score}`,
-    "Weighted planning score from liquidity, cashflow, savings, target discipline, debt, concentration, capital momentum, and data quality.",
+    "Weighted planning score from liquidity, cashflow, savings, target discipline, retained-capital leakage, compounding deficit, debt, concentration, capital momentum, and data quality.",
     "gauge",
     {
       compact: true,
@@ -10631,8 +10731,16 @@ function financialHealthComponents(accounts = {}, transactions = {}, trades = {}
   const ytdSavingsRate = percentOf(ytdNet, ytdIncome);
   const structuralOverspending = Math.max(0, numericValue(transactions.capital_targets?.structural_overspending_eur));
   const annualizedIncome = averageIncome * 12;
-  const currentCapacityBase = Math.max(Math.abs(netWorth), Math.abs(ytdIncome), Math.abs(annualizedIncome), 1);
+  const targetSummary = transactions.capital_targets || {};
+  const targetIncomeBaseline = numericValue(targetSummary.income_baseline_eur);
+  const targetSavings = numericValue(targetSummary.target_savings_eur);
+  const actualSavings = numericValue(targetSummary.actual_savings_eur);
+  const retentionShortfall = Math.max(0, targetSavings - actualSavings);
+  const currentCapacityBase = Math.max(Math.abs(netWorth), Math.abs(ytdIncome), Math.abs(annualizedIncome), Math.abs(targetIncomeBaseline), 1);
+  const targetCapacityBase = Math.max(Math.abs(targetIncomeBaseline), Math.abs(targetSavings), Math.abs(annualizedIncome), Math.abs(ytdIncome), 1);
   const structuralOverspendingPct = percentOf(structuralOverspending, currentCapacityBase);
+  const retentionShortfallPct = percentOf(retentionShortfall, targetCapacityBase);
+  const actualSavingsVsTargetPct = targetSavings ? percentOf(actualSavings, targetSavings) : ytdSavingsRate;
   const targets = transactions.monthly_targets || [];
   const targetRowsWithActuals = targets.filter((row) => monthlyTargetActualsAreDue(row));
   const breachRate = targetRowsWithActuals.length
@@ -10650,6 +10758,7 @@ function financialHealthComponents(accounts = {}, transactions = {}, trades = {}
   const investmentShare = percentOf(breakdownAmount(accounts.by_bucket, ["investment", "investments"]), netWorth);
   const leakageContext = netWorthLeakageContext(accounts, transactions);
   const capitalLeakagePct = percentOf(numericValue(leakageContext.ledgerGap), currentCapacityBase);
+  const compoundingDeficitPct = percentOf(numericValue(leakageContext.compoundingDeficit), currentCapacityBase);
   const investmentCapital = breakdownAmount(accounts.by_bucket, ["investment", "investments"]);
   const realizedGains = numericValue(trades.realized_pl_eur, currencyTotal(trades.realized_pl_by_currency));
   const unrealizedGains = numericValue(trades.unrealized_pl_eur, currencyTotal(trades.unrealized_pl_by_currency));
@@ -10672,9 +10781,21 @@ function financialHealthComponents(accounts = {}, transactions = {}, trades = {}
     { score: positiveCashflowPct, weight: 0.35 },
   ]);
   const targetDisciplineScore = weightedHealthScore([
-    { score: healthScoreLowerIsBetter(structuralOverspendingPct, 0, 5, 20), weight: 0.45 },
-    { score: healthScoreLowerIsBetter(breachRate, 0, 20, 65), weight: 0.35 },
-    { score: healthScoreLowerIsBetter(expenseVolatility, 10, 35, 85), weight: 0.20 },
+    { score: healthScoreLowerIsBetter(structuralOverspendingPct, 0, 5, 20), weight: 0.30 },
+    { score: healthScoreLowerIsBetter(breachRate, 0, 20, 65), weight: 0.30 },
+    { score: healthScoreLowerIsBetter(retentionShortfallPct, 0, 6, 22), weight: 0.25 },
+    { score: healthScoreLowerIsBetter(expenseVolatility, 10, 35, 85), weight: 0.15 },
+  ]);
+  const savingsScore = weightedHealthScore([
+    { score: healthScoreHigherIsBetter(ytdSavingsRate, -10, 25, 60), weight: 0.55 },
+    { score: healthScoreHigherIsBetter(actualSavingsVsTargetPct, 25, 90, 120), weight: 0.30 },
+    { score: healthScoreLowerIsBetter(retentionShortfallPct, 0, 6, 22), weight: 0.15 },
+  ]);
+  const leakageScore = weightedHealthScore([
+    { score: healthScoreLowerIsBetter(structuralOverspendingPct, 0, 4, 18), weight: 0.25 },
+    { score: healthScoreLowerIsBetter(capitalLeakagePct, 0, 8, 25), weight: 0.25 },
+    { score: healthScoreLowerIsBetter(compoundingDeficitPct, 0, 12, 35), weight: 0.30 },
+    { score: healthScoreLowerIsBetter(retentionShortfallPct, 0, 6, 22), weight: 0.20 },
   ]);
   const debtScore = weightedHealthScore([
     { score: creditScore, weight: 0.65 },
@@ -10686,9 +10807,8 @@ function financialHealthComponents(accounts = {}, transactions = {}, trades = {}
     { score: healthScoreLowerIsBetter(investmentShare, 75, 90, 100), weight: 0.15 },
   ]);
   const capitalMomentumScore = weightedHealthScore([
-    { score: healthScoreLowerIsBetter(capitalLeakagePct, 0, 8, 25), weight: 0.45 },
-    { score: healthScoreHigherIsBetter(investmentReturn, -10, 0, 15), weight: 0.35 },
-    { score: healthScoreLowerIsBetter(stalePositionPct, 0, 10, 40), weight: 0.20 },
+    { score: healthScoreHigherIsBetter(investmentReturn, -10, 0, 15), weight: 0.70 },
+    { score: healthScoreLowerIsBetter(stalePositionPct, 0, 10, 40), weight: 0.30 },
   ]);
   const dataQualityScore = weightedHealthScore([
     { score: dataCompletenessScore, weight: 0.70 },
@@ -10696,14 +10816,15 @@ function financialHealthComponents(accounts = {}, transactions = {}, trades = {}
   ]);
 
   return [
-    { label: "liquidity", score: liquidityScore, weight: 18 },
-    { label: "cashflow", score: cashflowScore, weight: 16 },
-    { label: "savings", score: healthScoreHigherIsBetter(ytdSavingsRate, -10, 25, 60), weight: 12 },
-    { label: "targets", score: targetDisciplineScore, weight: 18 },
-    { label: "debt", score: debtScore, weight: 12 },
-    { label: "concentration", score: concentrationScore, weight: 12 },
+    { label: "liquidity", score: liquidityScore, weight: 12 },
+    { label: "cashflow", score: cashflowScore, weight: 14 },
+    { label: "savings", score: savingsScore, weight: 10 },
+    { label: "targets", score: targetDisciplineScore, weight: 14 },
+    { label: "leakage", score: leakageScore, weight: 16 },
+    { label: "debt", score: debtScore, weight: 10 },
+    { label: "concentration", score: concentrationScore, weight: 10 },
     { label: "capital trend", score: capitalMomentumScore, weight: 8 },
-    { label: "data quality", score: dataQualityScore, weight: 4 },
+    { label: "data quality", score: dataQualityScore, weight: 6 },
   ];
 }
 
@@ -17771,6 +17892,25 @@ function defaultTradeFilters(overrides = {}) {
     exit_date: "",
     price_as_of: "",
     quality_signal: "",
+    ...overrides,
+  };
+}
+
+function defaultPortfolioFilters(overrides = {}) {
+  return {
+    portfolio_id: "",
+    portfolio_name: "",
+    provider: "",
+    ticker: "",
+    asset_name: "",
+    asset_class: "",
+    asset_bucket: "",
+    exchange: "",
+    isin: "",
+    base_currency: "",
+    current_value_currency: "",
+    contribution_type: "",
+    contribution_role: "",
     ...overrides,
   };
 }

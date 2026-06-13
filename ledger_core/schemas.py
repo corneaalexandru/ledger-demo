@@ -14,6 +14,7 @@ ACCOUNTS_HEADERS = [
     "account_status",
     "capital_bucket",
     "account_type",
+    "country_code",
     "account_currency",
     "balance_native",
     "amount_eur_converted",
@@ -23,7 +24,6 @@ ACCOUNTS_HEADERS = [
     "ledger_status",
     "review_status",
     "notes",
-    "country_code",
 ]
 
 TRANSACTIONS_HEADERS = [
