@@ -2650,8 +2650,15 @@ function applyStructuredQuickFilter(field, value) {
   }
 
   if (state.view === "portfolio") {
-    if (Object.prototype.hasOwnProperty.call(state.portfolioFilters, filterField)) {
-      state.portfolioFilters[filterField] = filterValue;
+    const nextField = canonicalPortfolioFilterField(filterField);
+    const nextValue = canonicalPortfolioFilterValue(nextField, filterValue);
+    if (Object.prototype.hasOwnProperty.call(state.portfolioFilters, nextField)) {
+      if (isPortfolioIdentityFilter(nextField)) {
+        state.portfolioFilters.portfolio_id = nextValue;
+        state.portfolioFilters.portfolio_name = "";
+      } else {
+        state.portfolioFilters[nextField] = nextValue;
+      }
     } else {
       return false;
     }
@@ -2659,8 +2666,8 @@ function applyStructuredQuickFilter(field, value) {
     render();
     return {
       view: "portfolio",
-      field: filterField,
-      value: filterValue,
+      field: nextField,
+      value: nextValue,
     };
   }
 
@@ -2733,14 +2740,19 @@ function quickFilterRegisterView(view = state.view) {
 
 function setQuickFilterChip(view, field, value, label = value) {
   const filterView = quickFilterRegisterView(view);
-  const filterField = String(field || "").trim();
-  const filterValue = String(value || "").trim();
+  let filterField = String(field || "").trim();
+  let filterValue = String(value || "").trim();
   if (!filterView || !filterField || !filterValue) return;
   const filterLabel = String(label || value || "").replace(/\s+/g, " ").trim() || filterValue;
   if (filterView === "transactions" && transactionDateChipFields().includes(filterField)) {
     transactionDateChipFields().forEach((dateField) => {
       delete state.quickFilters[filterView][dateField];
     });
+  }
+  if (filterView === "portfolio" && isPortfolioIdentityFilter(filterField)) {
+    filterField = "portfolio_id";
+    filterValue = canonicalPortfolioFilterValue(filterField, filterValue);
+    delete state.quickFilters[filterView].portfolio_name;
   }
   state.quickFilters[filterView][filterField] = {
     view: filterView,
@@ -2815,7 +2827,15 @@ function quickFilterMatchesState(view, chip = {}) {
   }
   if (view === "accounts") return String(state.accountFilters[field] || "") === value;
   if (view === "trades") return String(state.tradeFilters[field] || "") === value;
-  if (view === "portfolio") return String(state.portfolioFilters[field] || "") === value;
+  if (view === "portfolio") {
+    if (isPortfolioIdentityFilter(field)) {
+      return portfolioIdentityMatches(
+        state.portfolioFilters.portfolio_id || state.portfolioFilters.portfolio_name,
+        value,
+      );
+    }
+    return String(state.portfolioFilters[field] || "") === value;
+  }
   return false;
 }
 
@@ -2827,7 +2847,7 @@ function registerFilterState(view) {
   }
   if (view === "accounts") return state.accountFilters || {};
   if (view === "trades") return state.tradeFilters || {};
-  if (view === "portfolio") return state.portfolioFilters || {};
+  if (view === "portfolio") return portfolioFiltersForChips(state.portfolioFilters || {});
   return {};
 }
 
@@ -2835,7 +2855,7 @@ function registerFilterChipLabel(view, field, value) {
   if (field === "transaction_class") return transactionTypeFilterLabel(value);
   if (field === "category_id" || field === "subcategory_id") return taxonomyLabel(value);
   if (field === "country_code") return countryOptionLabel(value);
-  if (field === "portfolio_id") return displayPortfolioId(value);
+  if (field === "portfolio_id") return portfolioNameFromId(value);
   return labelize(value);
 }
 
@@ -2918,7 +2938,7 @@ function quickFilterValueLabel(chip = {}) {
   if (chip.field === "year") return chip.value;
   if (chip.field === "category_id" || chip.field === "subcategory_id") return taxonomyLabel(chip.value);
   if (chip.field === "country_code") return chip.label || chip.value;
-  if (chip.field === "portfolio_id") return displayPortfolioId(chip.value);
+  if (chip.field === "portfolio_id") return chip.label || portfolioNameFromId(chip.value);
   if (chip.field === "phase_id") return chip.label || displayPhaseId(chip.value);
   return chip.label || labelize(chip.value);
 }
@@ -2967,6 +2987,11 @@ function clearQuickFilterField(view, field) {
   }
   if (view === "trades" && Object.prototype.hasOwnProperty.call(state.tradeFilters, field)) {
     state.tradeFilters[field] = "";
+    return;
+  }
+  if (view === "portfolio" && isPortfolioIdentityFilter(field)) {
+    state.portfolioFilters.portfolio_id = "";
+    state.portfolioFilters.portfolio_name = "";
     return;
   }
   if (view === "portfolio" && Object.prototype.hasOwnProperty.call(state.portfolioFilters, field)) {
@@ -5935,7 +5960,6 @@ function portfolioPerformanceTable(rows = [], portfolio = {}) {
               <td>
 	                <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, portfolioPerformanceLabel(row, rows), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
 	                <span class="table-sub">${[
-	                  row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
 	                  row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
 	                  row.contribution_type ? quickFilterControl(row.contribution_type, displayContributionType(row.contribution_type || "investment"), { field: "contribution_type" }) : "",
 	                  row.contribution_role ? quickFilterControl(row.contribution_role, labelize(row.contribution_role || "self"), { field: "contribution_role" }) : "",
@@ -5997,6 +6021,36 @@ function portfolioFilterMatches(row = {}, field = "", value = "") {
     const normalized = String(candidate || "").trim().toLowerCase();
     return normalized === expected || normalized === portfolioIdExpected;
   });
+}
+
+function isPortfolioIdentityFilter(field = "") {
+  return field === "portfolio_id" || field === "portfolio_name";
+}
+
+function canonicalPortfolioFilterField(field = "") {
+  return isPortfolioIdentityFilter(field) ? "portfolio_id" : String(field || "").trim();
+}
+
+function canonicalPortfolioFilterValue(field = "", value = "") {
+  if (!isPortfolioIdentityFilter(field)) return String(value || "").trim();
+  return storedPortfolioId(value);
+}
+
+function portfolioIdentityMatches(left = "", right = "") {
+  const leftId = storedPortfolioId(left).toLowerCase();
+  const rightId = storedPortfolioId(right).toLowerCase();
+  return Boolean(leftId && rightId && leftId === rightId);
+}
+
+function portfolioFiltersForChips(filters = {}) {
+  const normalized = { ...filters };
+  if (String(normalized.portfolio_name || "").trim()) {
+    normalized.portfolio_id = storedPortfolioId(normalized.portfolio_name);
+  } else if (String(normalized.portfolio_id || "").trim()) {
+    normalized.portfolio_id = storedPortfolioId(normalized.portfolio_id);
+  }
+  delete normalized.portfolio_name;
+  return normalized;
 }
 
 function portfolioFilterCandidates(row = {}, key = "") {
@@ -6173,13 +6227,23 @@ function portfolioNameFromId(value) {
 function portfolioReferenceLabel(value) {
   const id = String(value || "").trim();
   if (!id) return "";
-  const displayId = displayPortfolioId(id);
-  const name = portfolioNameFromId(id);
-  return name && name !== displayId ? `${name} · ${displayId}` : displayId;
+  return portfolioNameFromId(id) || displayPortfolioId(id);
 }
 
 function storedPortfolioId(value) {
-  return String(value || "").trim().replace(/^P(\d+[A-Z]?)$/i, (_match, suffix) => `p${String(suffix).toLowerCase()}`);
+  const raw = String(value || "").trim();
+  const nameMatch = raw.match(/^portfolio\s+(\d+)(?:\s*[-–]\s*([a-z]+))?$/i);
+  if (nameMatch) {
+    const [, number, suffix = ""] = nameMatch;
+    const normalizedSuffix = suffix.toLowerCase();
+    const suffixCode = normalizedSuffix === "employee"
+      ? "a"
+      : normalizedSuffix === "employer"
+        ? "b"
+        : normalizedSuffix.slice(0, 1);
+    return `p${number}${suffixCode}`;
+  }
+  return raw.replace(/^P(\d+[A-Z]?)$/i, (_match, suffix) => `p${String(suffix).toLowerCase()}`);
 }
 
 function displayPhaseId(value) {
@@ -6839,7 +6903,6 @@ function portfolioPortfolioPerformanceTable(rows = []) {
               <td>
                 <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, portfolioScopeLabel(row, rows), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
                 <span class="table-sub">${[
-                  row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
                   row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
                   formatPlural(row.instrument_count || 0, "instrument"),
                 ].filter(Boolean).join(" · ")}</span>
@@ -6878,7 +6941,6 @@ function portfolioPortfolioPerformanceTable(rows = []) {
 
 function portfolioMetaLine(row = {}) {
   return [
-    row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
     row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
   ].filter(Boolean).join(" · ");
 }
@@ -7098,7 +7160,6 @@ function portfolioMipTable(rows = [], phases = []) {
 		                <td>
 		                  <span class="table-main">${quickFilterControl(row.portfolio_name || row.portfolio_id, row.portfolio_name || displayPortfolioId(row.portfolio_id), { field: row.portfolio_name ? "portfolio_name" : "portfolio_id" })}</span>
 		                  <span class="table-sub">${[
-	                        row.portfolio_id ? quickFilterControl(row.portfolio_id, displayPortfolioId(row.portfolio_id), { field: "portfolio_id" }) : "",
 	                        row.provider ? quickFilterControl(row.provider, labelize(row.provider), { field: "provider" }) : "",
 	                        row.contribution_type ? quickFilterControl(row.contribution_type, displayContributionType(row.contribution_type || "investment"), { field: "contribution_type" }) : "",
 	                        row.contribution_role ? quickFilterControl(row.contribution_role, labelize(row.contribution_role || "self"), { field: "contribution_role" }) : "",

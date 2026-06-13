@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Collapsed Portfolio name/code quick filters so `Portfolio 1` and `P1` render as one portfolio identity.
 - Prevented imported statement PDF previews from trapping scroll inside transaction drawers.
 - Changed account and transaction country edit fields to plain two-letter country-code inputs without browser/datalist autofill suggestions.
 - Kept scroll position inside register tables when opening or closing detail drawers from any row.
