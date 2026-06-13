@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Kept subpage tab bars and Settings/About dividers in normal page flow so they no longer float over scrolled content.
 - Collapsed Portfolio name/code quick filters so `Portfolio 1` and `P1` render as one portfolio identity.
 - Prevented imported statement PDF previews from trapping scroll inside transaction drawers.
 - Changed account and transaction country edit fields to plain two-letter country-code inputs without browser/datalist autofill suggestions.
