@@ -6624,8 +6624,15 @@ table.portfolio-table td:nth-child(7) {
 
 @media print {
   @page {
-    size: A4;
-    margin: 10mm;
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   html,
@@ -6634,33 +6641,33 @@ table.portfolio-table td:nth-child(7) {
     width: auto !important;
     background: #fff !important;
     color: #111820 !important;
-    font-size: 9.5pt;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 8.25pt;
+    line-height: 1.25;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  body {
+    margin: 0 !important;
   }
 
   body::before {
     content: attr(data-print-title) "\A" attr(data-print-meta);
     display: block;
-    margin: 0 0 7mm;
-    padding-bottom: 3mm;
+    margin: 0 0 4mm;
+    padding-bottom: 2mm;
     border-bottom: 1px solid #d8dde3;
     color: #111820;
-    font-size: 15pt;
+    font-size: 10.5pt;
     font-weight: 780;
-    line-height: 1.2;
-    white-space: pre;
+    line-height: 1.25;
+    white-space: pre-wrap;
   }
 
   body::after {
-    content: "Ledger";
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    color: #9aa3ad;
-    font-size: 7pt;
-    font-weight: 650;
-    letter-spacing: 0;
+    content: none !important;
+    display: none !important;
   }
 
   .app-shell {
@@ -6669,6 +6676,7 @@ table.portfolio-table td:nth-child(7) {
   }
 
   .workspace {
+    overflow: visible !important;
     padding: 0 !important;
   }
 
@@ -6680,6 +6688,12 @@ table.portfolio-table td:nth-child(7) {
   .sidebar,
   .topbar,
   .transaction-tabs,
+  .page-tabs,
+  .settings-about-tabs,
+  .settings-page-divider,
+  .topbar-print-control,
+  .period-control,
+  .active-filter-chips,
   .chart-compact-tools,
   .chart-expand-button,
   .report-chart-actions,
@@ -6688,41 +6702,66 @@ table.portfolio-table td:nth-child(7) {
   .dashboard-customize,
   .metric-card-hide,
   .table-action-button,
+  .table-footer,
+  .pagination-controls,
+  .rows-control,
   .check-cell,
+  table.accounts-table th.account-check-cell,
+  table.accounts-table td.account-check-cell,
+  table.trades-table th.trade-check-cell,
+  table.trades-table td.trade-check-cell,
   .selection-inline,
-  .quick-filter-control,
   .details-panel,
   .chart-modal-backdrop {
+    display: none !important;
+  }
+
+  .quick-filter-control {
+    display: inline !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    font: inherit !important;
+    text-align: inherit !important;
+    box-shadow: none !important;
+  }
+
+  .quick-filter-control [data-icon],
+  .quick-filter-control svg {
     display: none !important;
   }
 
   .transactions-head,
   .overview-intro {
     position: static;
-    margin: 0 0 5mm;
+    margin: 0 0 4mm;
     padding: 0;
     background: transparent;
     color: #111820;
   }
 
+  .page-title h1,
   .transactions-head h1 {
-    font-size: 19pt;
-    line-height: 1.05;
+    font-size: 16pt;
+    line-height: 1.08;
   }
 
   .overview-intro .section-kicker {
     color: #69727c;
-    font-size: 7.5pt;
+    font-size: 7pt;
   }
 
   .hero-value {
-    font-size: 28pt;
+    font-size: 22pt;
     line-height: 0.95;
   }
 
   .hero-delta {
-    margin-top: 3mm;
-    font-size: 9pt;
+    margin-top: 2mm;
+    font-size: 8pt;
   }
 
   .reports-layout,
@@ -6733,8 +6772,8 @@ table.portfolio-table td:nth-child(7) {
   .planning-target-grid,
   .monthly-target-grid,
   .settings-metrics {
-    gap: 5mm;
-    margin-top: 5mm;
+    gap: 4mm;
+    margin-top: 4mm;
   }
 
   .overview-insight-grid,
@@ -6746,7 +6785,7 @@ table.portfolio-table td:nth-child(7) {
   }
 
   .overview-insight-grid {
-    row-gap: 7mm;
+    row-gap: 4mm;
   }
 
   .insight-panel-grid,
@@ -6761,34 +6800,34 @@ table.portfolio-table td:nth-child(7) {
   .overview-insight-grid .metric-card,
   .metric-card {
     min-height: 0;
-    padding: 4mm 4mm 3.5mm;
+    padding: 3mm 3.5mm;
     border-left: 1px solid #d8dde3;
     color: #111820;
   }
 
   .overview-insight-grid .metric-card {
     min-height: 0;
-    padding: 2mm 4mm 2.5mm;
+    padding: 2mm 3.5mm;
   }
 
   .metric-card-label,
   .metric-card small,
   .metric-card em {
     color: #65717d;
-    font-size: 7.5pt;
+    font-size: 7pt;
   }
 
   .metric-card strong,
   .overview-insight-grid .metric-card strong,
   .transaction-metrics .metric-card strong {
     color: #05070a;
-    font-size: 15pt;
-    line-height: 1.03;
+    font-size: 12pt;
+    line-height: 1.08;
   }
 
   .metric-sparkline {
-    height: 18px;
-    margin-top: 3mm;
+    height: 14px;
+    margin-top: 2mm;
   }
 
   .panel {
@@ -6799,17 +6838,17 @@ table.portfolio-table td:nth-child(7) {
   }
 
   .panel-header {
-    margin-bottom: 4mm;
+    margin-bottom: 3mm;
   }
 
   .panel-header h2 {
     color: #111820;
-    font-size: 10pt;
+    font-size: 9pt;
   }
 
   .chart-compact-card {
     min-height: 0;
-    padding: 5mm 5mm 4mm;
+    padding: 4mm;
     border: 1px solid #d8dde3;
     border-radius: 0;
     background: #fff;
@@ -6821,72 +6860,235 @@ table.portfolio-table td:nth-child(7) {
   }
 
   .chart-compact-card .metric-card-label {
-    font-size: 8pt;
+    font-size: 7pt;
   }
 
   .chart-compact-card strong {
-    margin-top: 2mm;
-    font-size: 18pt;
+    margin-top: 1.5mm;
+    font-size: 14pt;
   }
 
   .chart-compact-card small {
-    font-size: 8pt;
+    font-size: 7pt;
   }
 
   .chart-compact-standard {
-    min-height: 42mm;
-    margin-top: 7mm;
-  }
-
-  .chart-compact-standard svg {
-    height: 42mm;
-  }
-
-  .chart-compact-card .metric-delta-strip {
-    gap: 2mm 6mm;
+    min-height: 36mm;
     margin-top: 5mm;
   }
 
+  .chart-compact-standard svg {
+    height: 36mm;
+  }
+
+  .chart-compact-card .metric-delta-strip {
+    gap: 1.5mm 5mm;
+    margin-top: 4mm;
+  }
+
   .chart-compact-card .metric-delta strong {
-    font-size: 9pt;
+    font-size: 8pt;
   }
 
   .chart-compact-card .metric-delta em,
   .chart-compact-card .metric-delta {
-    font-size: 7.5pt;
+    font-size: 7pt;
   }
 
   .chart-compact-card > em {
-    font-size: 7.5pt;
+    font-size: 7pt;
+  }
+
+  .minimal-table-wrap,
+  .transactions-table-wrap,
+  .portfolio-table-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+    scrollbar-gutter: auto !important;
+  }
+
+  .minimal-table,
+  .data-table,
+  .transactions-table,
+  .accounts-table,
+  .trades-table,
+  .portfolio-table,
+  .portfolio-mip-table,
+  .planning-target-table,
+  .monthly-target-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+  }
+
+  .minimal-table thead,
+  .data-table thead {
+    display: table-header-group;
+  }
+
+  .minimal-table tfoot,
+  .data-table tfoot {
+    display: table-footer-group;
   }
 
   .minimal-table th {
     position: static;
-    padding: 2.5mm 2mm;
+    padding: 1.7mm 1.4mm;
     background: transparent;
     color: #65717d;
-    font-size: 7pt;
+    font-size: 6.4pt;
+    line-height: 1.18;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .minimal-table td {
-    padding: 2.5mm 2mm;
+    padding: 1.8mm 1.4mm;
     color: #111820;
-    font-size: 8pt;
+    font-size: 7.2pt;
+    line-height: 1.22;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+
+  .minimal-table .table-main,
+  .minimal-table .table-sub {
+    display: block;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
   }
 
   .minimal-table .table-sub {
     color: #65717d;
-    font-size: 7pt;
+    font-size: 6.5pt;
   }
 
   .metric-card,
   .panel,
   .chart-compact-card,
-  .chart-detail-grid article,
-  .minimal-table,
-  .data-table {
+  .chart-detail-grid article {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .minimal-table,
+  .data-table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .minimal-table tr,
+  .data-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .settings-line-grid,
+  .overview-insight-grid.settings-line-grid,
+  .document-line-list {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    border-left: 1px solid #d8dde3 !important;
+    padding-left: 8mm !important;
+    color: #65717d !important;
+  }
+
+  .settings-line-grid .metric-card,
+  .overview-insight-grid.settings-line-grid .metric-card {
+    position: relative;
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 0 1.6mm !important;
+    padding: 0 0 0 5mm !important;
+    border: 0 !important;
+    color: #111820 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .settings-line-grid .metric-card::before,
+  .overview-insight-grid.settings-line-grid .metric-card::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #65717d;
+    font-size: 8pt;
+    line-height: 1.35;
+  }
+
+  .settings-line-grid .metric-card-head,
+  .overview-insight-grid.settings-line-grid .metric-card-head {
+    display: inline;
+    min-height: 0;
+  }
+
+  .settings-line-grid .metric-card-label,
+  .settings-line-grid .metric-card strong,
+  .settings-line-grid .settings-card-value,
+  .settings-line-grid .metric-card small,
+  .settings-line-grid .metric-card > em,
+  .overview-insight-grid.settings-line-grid .metric-card-label,
+  .overview-insight-grid.settings-line-grid .metric-card strong,
+  .overview-insight-grid.settings-line-grid .metric-card small,
+  .overview-insight-grid.settings-line-grid .metric-card > em {
+    display: inline !important;
+    margin: 0 !important;
+    color: inherit;
+    font-size: 8.1pt !important;
+    line-height: 1.35 !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    -webkit-box-orient: initial !important;
+    -webkit-line-clamp: unset !important;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-line-grid .metric-card-label,
+  .overview-insight-grid.settings-line-grid .metric-card-label {
+    color: #111820 !important;
+    font-weight: 720 !important;
+  }
+
+  .settings-line-grid .metric-card strong,
+  .settings-line-grid .settings-card-value,
+  .overview-insight-grid.settings-line-grid .metric-card strong {
+    color: #05070a !important;
+    font-weight: 720 !important;
+  }
+
+  .settings-line-grid .metric-card small,
+  .settings-line-grid .metric-card > em,
+  .overview-insight-grid.settings-line-grid .metric-card small,
+  .overview-insight-grid.settings-line-grid .metric-card > em {
+    color: #65717d !important;
+    font-weight: 500 !important;
+  }
+
+  .settings-line-grid .settings-card-actions,
+  .settings-line-grid .small-button {
+    display: none !important;
+  }
+
+  .settings-line-grid input,
+  .settings-line-grid select,
+  .settings-line-grid textarea {
+    display: inline !important;
+    max-width: 44mm !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #05070a !important;
+    font: inherit !important;
+    font-weight: 720 !important;
+    appearance: none !important;
   }
 
   .reports-chart-grid .chart-compact-card:nth-child(2n + 1) {
@@ -6910,8 +7112,8 @@ table.portfolio-table td:nth-child(7) {
 
     .chart-compact-standard,
     .chart-compact-standard svg {
-      height: 48mm;
-      min-height: 48mm;
+      height: 34mm;
+      min-height: 34mm;
     }
   }
 }
