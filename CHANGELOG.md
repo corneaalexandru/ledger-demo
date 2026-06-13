@@ -4,6 +4,7 @@ Ledger Public follows the private Ledger development stream. Public releases con
 
 ## 2026-06-13
 
+- Kept scroll position inside register tables when opening or closing detail drawers from any row.
 - Improved print/PDF output with landscape A4 layout, compact matching typography, fitted tables, and cleaner print headers.
 - Expanded Financial Health scoring with retained-capital shortfall, ledger leakage, and compounding deficit inputs.
 - Matched Portfolio quick filters to register behavior with removable chips for portfolio, provider, ticker, and funding fields.

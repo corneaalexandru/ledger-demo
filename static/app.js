@@ -3132,6 +3132,19 @@ function renderPreservingScroll() {
   render({ preserveScroll: true });
 }
 
+const TABLE_SCROLL_CONTAINER_SELECTOR = ".minimal-table-wrap, .data-table-wrap";
+const TABLE_SCROLL_ROW_SELECTOR = ".clickable-row[data-action], tbody tr[data-action]";
+const TABLE_SCROLL_ROW_ID_FIELDS = [
+  "accountId",
+  "transactionId",
+  "tradeId",
+  "portfolioInstrumentId",
+  "portfolioMipId",
+  "exitPhaseId",
+  "monthlyTargetMonth",
+  "yearlyTargetYear",
+];
+
 function captureScrollPosition() {
   const scrollingElement = document.scrollingElement || document.documentElement;
   const workspace = document.querySelector(".workspace");
@@ -3140,6 +3153,70 @@ function captureScrollPosition() {
     windowY: window.scrollY,
     documentTop: scrollingElement?.scrollTop || 0,
     workspaceTop: workspace?.scrollTop || 0,
+    tableScroll: captureTableScrollPositions(),
+  };
+}
+
+function tableScrollContainers() {
+  return Array.from(document.querySelectorAll(TABLE_SCROLL_CONTAINER_SELECTOR))
+    .filter((node) => node instanceof HTMLElement);
+}
+
+function tableScrollContainerKey(container, index) {
+  const table = container.querySelector("table");
+  const wrapperClasses = Array.from(container.classList)
+    .filter((className) => className.includes("table-wrap"))
+    .sort()
+    .join(".");
+  const tableClasses = table
+    ? Array.from(table.classList)
+      .filter((className) => className.includes("table"))
+      .sort()
+      .join(".")
+    : "";
+  return [
+    state.view,
+    state.accountView,
+    state.transactionView,
+    state.tradeView,
+    state.portfolioView,
+    state.overviewView,
+    wrapperClasses,
+    tableClasses,
+    index,
+  ].join("|");
+}
+
+function captureTableScrollPositions() {
+  return tableScrollContainers().map((container, index) => ({
+    key: tableScrollContainerKey(container, index),
+    scrollTop: container.scrollTop,
+    scrollLeft: container.scrollLeft,
+    anchor: tableScrollAnchor(container),
+  }));
+}
+
+function tableRowScrollIdentity(row, index) {
+  const action = row.dataset.action || "";
+  const field = TABLE_SCROLL_ROW_ID_FIELDS.find((key) => row.dataset[key]);
+  if (field) return `${action}:${field}:${row.dataset[field]}`;
+  return `${action}:row:${index}`;
+}
+
+function tableScrollAnchor(container) {
+  const containerRect = container.getBoundingClientRect();
+  const rows = Array.from(container.querySelectorAll(TABLE_SCROLL_ROW_SELECTOR))
+    .filter((row) => row instanceof HTMLElement);
+  const anchorIndex = rows.findIndex((row) => {
+    const rect = row.getBoundingClientRect();
+    return rect.bottom > containerRect.top && rect.top < containerRect.bottom;
+  });
+  if (anchorIndex < 0) return null;
+  const row = rows[anchorIndex];
+  const rect = row.getBoundingClientRect();
+  return {
+    id: tableRowScrollIdentity(row, anchorIndex),
+    offsetTop: rect.top - containerRect.top,
   };
 }
 
@@ -3152,12 +3229,42 @@ function restoreScrollPosition(position) {
     if (document.documentElement) document.documentElement.scrollTop = position.documentTop;
     if (document.body) document.body.scrollTop = position.documentTop;
     if (workspace) workspace.scrollTop = position.workspaceTop;
+    restoreTableScrollPositions(position.tableScroll);
     window.scrollTo(position.windowX, position.windowY);
   };
   apply();
   window.requestAnimationFrame(apply);
   window.requestAnimationFrame(() => window.requestAnimationFrame(apply));
   window.setTimeout(apply, 0);
+}
+
+function restoreTableScrollPositions(positions = []) {
+  if (!positions.length) return;
+  const positionByKey = new Map(positions.map((position) => [position.key, position]));
+  tableScrollContainers().forEach((container, index) => {
+    const position = positionByKey.get(tableScrollContainerKey(container, index));
+    if (!position) return;
+    const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const maxLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+    container.scrollTop = Math.min(Math.max(0, position.scrollTop || 0), maxTop);
+    container.scrollLeft = Math.min(Math.max(0, position.scrollLeft || 0), maxLeft);
+    restoreTableScrollAnchor(container, position.anchor);
+  });
+}
+
+function restoreTableScrollAnchor(container, anchor) {
+  if (!anchor?.id) return;
+  const containerRect = container.getBoundingClientRect();
+  const rows = Array.from(container.querySelectorAll(TABLE_SCROLL_ROW_SELECTOR))
+    .filter((row) => row instanceof HTMLElement);
+  const row = rows.find((candidate, index) => tableRowScrollIdentity(candidate, index) === anchor.id);
+  if (!row) return;
+  const rowRect = row.getBoundingClientRect();
+  const delta = rowRect.top - containerRect.top - numericValue(anchor.offsetTop);
+  if (Math.abs(delta) < 1) return;
+  const nextTop = container.scrollTop + delta;
+  const maxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  container.scrollTop = Math.min(Math.max(0, nextTop), maxTop);
 }
 
 function topbarConfig() {
