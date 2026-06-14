@@ -57,6 +57,7 @@ class SQLiteSheetCache:
 
     def _init(self) -> None:
         with self._connect() as connection:
+            connection.execute("pragma journal_mode=wal")
             connection.execute(
                 """
                 create table if not exists sheet_cache(
@@ -69,4 +70,6 @@ class SQLiteSheetCache:
             )
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path)
+        connection = sqlite3.connect(self.path, timeout=30)
+        connection.execute("pragma busy_timeout=30000")
+        return connection

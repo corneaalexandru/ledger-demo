@@ -2,6 +2,13 @@
 
 Ledger Public follows the private Ledger development stream. Public releases contain the same shared UI/core behavior where it is safe to publish, without private data or credentials.
 
+## 2026-06-14
+
+- Added total rows to the monthly target income and expense category model tables so each breakdown shows target, actual, and share or over-ceiling totals.
+- Reduced data-health noise by treating valid zero FX values as present, ignoring deleted rows, checking stale prices only for active trades, and treating explicit manual transactions as linked.
+- Hardened the SQLite snapshot cache with WAL mode and a longer busy timeout for concurrent local UI reads.
+- Aligned shared schema metadata with the app's `txn_` and `trd_` ID prefixes and full Google Sheet column ranges.
+
 ## 2026-06-13
 
 - Moved drawer scrolling into a padded body region and let email previews expand naturally so imported statement scrollbars no longer float through preview content.

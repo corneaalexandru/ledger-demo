@@ -12379,9 +12379,11 @@ function monthlyTargetCategoryDetailRows(row = {}) {
   const incomeRows = monthlyTargetIncomeCategories(row);
   const expenseRows = row.categories || [];
   return `
-    ${monthlyTargetCategoryGroupRow("Income Category Model", incomeRows.length)}
+    ${monthlyTargetCategoryGroupRow("Income Category Model", incomeRows.length || monthlyTargetCategoryTotalAvailable(row, incomeRows, "income"))}
+    ${monthlyTargetCategoryTotalRow(row, incomeRows, "income")}
     ${incomeRows.map((category) => monthlyTargetCategoryDetailRow(row, category, "income")).join("")}
-    ${monthlyTargetCategoryGroupRow("Expense Category Model", expenseRows.length)}
+    ${monthlyTargetCategoryGroupRow("Expense Category Model", expenseRows.length || monthlyTargetCategoryTotalAvailable(row, expenseRows, "expense"))}
+    ${monthlyTargetCategoryTotalRow(row, expenseRows, "expense")}
     ${expenseRows.map((category) => monthlyTargetCategoryDetailRow(row, category, "expense")).join("")}
   `;
 }
@@ -12402,9 +12404,11 @@ function monthlyTargetCategoryStandaloneRows(row = {}) {
   const incomeRows = monthlyTargetIncomeCategories(row);
   const expenseRows = row.categories || [];
   return `
-    ${monthlyTargetCategoryGroupRow("Income Category Model", incomeRows.length, true)}
+    ${monthlyTargetCategoryGroupRow("Income Category Model", incomeRows.length || monthlyTargetCategoryTotalAvailable(row, incomeRows, "income"), true)}
+    ${monthlyTargetCategoryTotalRow(row, incomeRows, "income", true)}
     ${incomeRows.map((category) => monthlyTargetCategoryDetailRow(row, category, "income", true)).join("")}
-    ${monthlyTargetCategoryGroupRow("Expense Category Model", expenseRows.length, true)}
+    ${monthlyTargetCategoryGroupRow("Expense Category Model", expenseRows.length || monthlyTargetCategoryTotalAvailable(row, expenseRows, "expense"), true)}
+    ${monthlyTargetCategoryTotalRow(row, expenseRows, "expense", true)}
     ${expenseRows.map((category) => monthlyTargetCategoryDetailRow(row, category, "expense", true)).join("")}
   `;
 }
@@ -12452,6 +12456,62 @@ function monthlyTargetCategoryDetailRow(row = {}, category = {}, mode = "expense
       </td>
     </tr>
   `;
+}
+
+function monthlyTargetCategoryTotalRow(row = {}, categories = [], mode = "expense", standalone = false) {
+  const total = monthlyTargetCategoryTotal(row, categories, mode);
+  if (!total.available) return "";
+  const categoryCellColspan = standalone ? "" : " colspan=\"4\"";
+  const overAmount = monthlyTargetCategoryOverspending(total, mode);
+  return `
+    <tr class="monthly-target-category-row monthly-target-category-total-row">
+      ${standalone ? "" : "<td></td>"}
+      <td${categoryCellColspan}>
+        <span class="monthly-target-category-cell">
+          <span class="monthly-target-category-name">
+            <span class="bar-row-icon" aria-hidden="true">${icons[mode === "income" ? "trendUp" : "wallet"] || icons.pie}</span>
+            <span>
+              <span class="table-main">${safe(mode === "income" ? "Total Income" : "Total Expenses")}</span>
+              <span class="table-sub">${safe(formatPlural(categories.length, "category"))}</span>
+            </span>
+          </span>
+          ${monthlyTargetCategoryProgressBar(total, mode)}
+        </span>
+      </td>
+      <td class="align-right">${targetAmountCell(total.target_eur, "EUR", mode === "income" ? "income target" : "expense target")}</td>
+      <td class="align-right">${targetAmountCell(total.actual_eur, "EUR", mode === "expense" ? "actual spend" : "actual income")}</td>
+      <td class="align-right ${mode === "expense" && overAmount > 0 ? "negative" : ""}">
+        ${mode === "expense"
+          ? targetAmountCell(overAmount, "EUR", overAmount > 0 ? "above total ceiling" : "on target")
+          : `
+            <span class="table-main">${safe(formatPercent(total.share_pct))}</span>
+            <span class="table-sub">of income model</span>
+          `}
+      </td>
+    </tr>
+  `;
+}
+
+function monthlyTargetCategoryTotalAvailable(row = {}, categories = [], mode = "expense") {
+  return monthlyTargetCategoryTotal(row, categories, mode).available ? 1 : 0;
+}
+
+function monthlyTargetCategoryTotal(row = {}, categories = [], mode = "expense") {
+  const categoryTarget = sumCategoryTargets(categories);
+  const categoryActual = categories.reduce((sum, category) => sum + numericValue(category.actual_eur), 0);
+  const target = mode === "income"
+    ? numericValue(row.income_target_eur, categoryTarget)
+    : numericValue(row.expense_ceiling_eur, categoryTarget);
+  const actual = mode === "income"
+    ? numericValue(row.actual_income_eur, categoryActual)
+    : numericValue(row.actual_expense_eur, categoryActual);
+  return {
+    category: mode,
+    target_eur: moneyRound(target),
+    actual_eur: moneyRound(actual),
+    share_pct: 100,
+    available: Boolean(categories.length || target || actual),
+  };
 }
 
 function monthlyTargetCategoryProgressBar(category = {}, mode = "expense") {

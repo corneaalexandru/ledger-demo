@@ -5218,6 +5218,20 @@ input.is-invalid {
   padding-bottom: 14px;
 }
 
+.monthly-target-category-total-row td {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  background: color-mix(in srgb, var(--panel) 52%, transparent);
+}
+
+.monthly-target-category-total-row .table-main {
+  font-weight: 760;
+}
+
+.monthly-target-category-total-row + .monthly-target-category-row td {
+  border-top-color: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
 .monthly-target-table {
   min-width: 1480px;
 }
